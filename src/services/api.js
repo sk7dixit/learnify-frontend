@@ -1,27 +1,29 @@
 // src/services/api.js
-import axios from 'axios';
+import axios from "axios";
 
-// Get the base URL from environment variables for production, or use a local default for development.
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+// Use the Vite environment variable for production, fallback to localhost for dev.
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+// Always append /api here so you can call api.post('/users/login')
 const api = axios.create({
-  // THE FIX: We add the '/api' prefix to the base URL.
-  // Every call like api.post('/users/login') will now correctly go to '.../api/users/login'.
   baseURL: `${API_URL}/api`,
+  withCredentials: true, // allow cookies / credentials if needed
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-// The interceptor doesn't need any changes.
+// Automatically attach JWT token if available
 api.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('token');
+    const token = sessionStorage.getItem("token");
     if (token) {
-      config.headers['Authorization'] = `Bearer ${token}`;
+      config.headers["Authorization"] = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 export default api;
