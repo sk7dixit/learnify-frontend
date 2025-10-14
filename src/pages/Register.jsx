@@ -1,0 +1,136 @@
+import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
+
+const Register = () => {
+  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
+  const [age, setAge] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const navigate = useNavigate();
+  const { login } = useAuth(); // Get the login function from context
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    setLoading(true);
+
+    try {
+      await api.post('/users/register', { name, age, email, password, mobileNumber, username });
+      setShowOtpInput(true);
+      setMessage('✅ Account created. Please enter the OTP sent to your email.');
+    } catch (err) {
+      setError(err.response?.data?.error || '❌ Registration failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleOtpVerification = async (e) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    setLoading(true);
+
+    try {
+      const res = await api.post('/users/verify-email-otp', { email, otp });
+
+      // **THE FIX IS HERE**
+      // Use the login function to properly set the token AND user state globally.
+      const { token, user } = res.data;
+      login(token, user);
+
+      setMessage('✅ Email verified! Redirecting to dashboard...');
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1500);
+
+    } catch (err) {
+      setError(err.response?.data?.error || '❌ OTP verification failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-4 md:p-8">
+      <div className="bg-gray-800 bg-opacity-70 backdrop-filter backdrop-blur-lg border border-gray-700 rounded-xl shadow-2xl p-6 md:p-8 w-full max-w-sm lg:max-w-md">
+        <h2 className="text-4xl font-extrabold text-cyan-400 mb-6 text-center tracking-wide">
+          Join Us Today!
+        </h2>
+
+        {message && <p className="text-center text-sm font-medium text-green-400 mb-4">{message}</p>}
+        {error && <p className="text-center text-sm font-medium text-red-400 mb-4">{error}</p>}
+
+        {!showOtpInput ? (
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div>
+              <label htmlFor="name" className="block text-lg font-medium text-gray-300 mb-2">Name</label>
+              <input type="text" id="name" className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white" placeholder="Your Name" value={name} onChange={(e) => setName(e.target.value)} required />
+            </div>
+            <div>
+              <label htmlFor="username" className="block text-lg font-medium text-gray-300 mb-2">Username</label>
+              <input type="text" id="username" className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white" placeholder="e.g., sunny_d" value={username} onChange={(e) => setUsername(e.target.value)} required />
+            </div>
+            <div>
+              <label htmlFor="email" className="block text-lg font-medium text-gray-300 mb-2">Email</label>
+              <input type="email" id="email" className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white" placeholder="your@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            </div>
+            <div>
+              <label htmlFor="mobileNumber" className="block text-lg font-medium text-gray-300 mb-2">Mobile Number</label>
+              <input type="tel" id="mobileNumber" className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white" placeholder="+91 9876543210" value={mobileNumber} onChange={(e) => setMobileNumber(e.target.value)} required />
+            </div>
+             <div>
+              <label htmlFor="age" className="block text-lg font-medium text-gray-300 mb-2">Age</label>
+              <input type="number" id="age" className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white" placeholder="18" value={age} onChange={(e) => setAge(e.target.value)} required />
+            </div>
+            <div>
+              <label htmlFor="password" className="block text-lg font-medium text-gray-300 mb-2">Password</label>
+              <div className="relative">
+                <input type={showPassword ? 'text' : 'password'} id="password" className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white pr-10" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                  {/* Eye icon SVG */}
+                </button>
+              </div>
+            </div>
+            <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:from-cyan-700 hover:to-blue-700 transition duration-300 ease-in-out transform hover:-translate-y-1 shadow-lg disabled:opacity-50">
+              {loading ? 'Creating account...' : 'Create Account'}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleOtpVerification} className="space-y-6">
+            <div className="text-center text-gray-300">
+              <p>An OTP has been sent to **{email}**. Please enter it below.</p>
+            </div>
+            <div>
+              <label htmlFor="otp" className="block text-lg font-medium text-gray-300 mb-2">Enter OTP</label>
+              <input type="text" id="otp" className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white" placeholder="123456" value={otp} onChange={(e) => setOtp(e.target.value)} required />
+            </div>
+            <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:from-cyan-700 hover:to-blue-700 transition duration-300 disabled:opacity-50">
+              {loading ? 'Verifying...' : 'Verify Email'}
+            </button>
+          </form>
+        )}
+
+        <p className="mt-8 text-center text-gray-400 text-sm">
+          Already have an account?{' '}
+          <Link to="/login" className="text-cyan-400 hover:text-cyan-300 font-semibold transition duration-200">
+            Login here
+          </Link>
+        </p>
+      </div>
+    </div>
+  );
+};
+
+export default Register;

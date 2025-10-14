@@ -1,0 +1,24 @@
+/* src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  /* overflow: hidden; */ /* <-- THIS LINE WAS REMOVED */
+}
+
+body {
+  font-family: 'Poppins', Arial, sans-serif;
+  line-height: 1.5;
+  background-color: #1a202c;
+  color: #f7fafc;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
