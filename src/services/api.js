@@ -1,16 +1,15 @@
-// src/services/api.js
 import axios from 'axios';
 
-// This line automatically chooses the correct API URL.
-// In development, it uses your local server.
-// In production (after deploying), it will use the live URL you set in the environment variables.
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Get the base URL from environment variables for production, or use a local default.
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const api = axios.create({
-  baseURL: API_URL,
+  // THE FIX IS HERE: We add the '/api' prefix to the base URL.
+  // Now every call like api.post('/users/login') will correctly go to '.../api/users/login'.
+  baseURL: `${API_URL}/api`,
 });
 
-// The interceptor remains the same, no changes needed here.
+// No changes are needed for the interceptor.
 api.interceptors.request.use(
   (config) => {
     const token = sessionStorage.getItem('token');
