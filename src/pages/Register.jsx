@@ -28,7 +28,10 @@ const Register = () => {
     try {
       await api.post('/users/register', { name, age, email, password, mobileNumber, username });
       setShowOtpInput(true);
-      setMessage('✅ Account created. Please enter the OTP sent to your email.');
+
+      // FIX: Updated success message to instruct users to check spam folder
+      setMessage('✅ Account created. Please enter the OTP sent to your email. (Note: Check your Spam/Junk folder if you do not receive it immediately.)');
+
     } catch (err) {
       setError(err.response?.data?.error || '❌ Registration failed.');
     } finally {
@@ -111,6 +114,10 @@ const Register = () => {
           <form onSubmit={handleOtpVerification} className="space-y-6">
             <div className="text-center text-gray-300">
               <p>An OTP has been sent to **{email}**. Please enter it below.</p>
+              {/* FIX: New instruction for the user */}
+              <p className="mt-2 text-yellow-400 text-sm font-semibold">
+                ⚠️ **If you don't receive the email, please check your Spam or Junk folder.**
+              </p>
             </div>
             <div>
               <label htmlFor="otp" className="block text-lg font-medium text-gray-300 mb-2">Enter OTP</label>
