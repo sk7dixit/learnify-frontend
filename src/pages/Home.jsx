@@ -41,7 +41,7 @@ const Home = () => {
         <div className="relative z-10 p-8 md:p-12 lg:p-16">
           <div className="animate-fadeInUp">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-white drop-shadow-lg">
-              WELCOME TO LEARNIFY
+              WELCOME TO OriNotes
             </h1>
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-white drop-shadow-lg mt-2">
               <span className="text-cyan-400">Explore. Learn. Grow.</span>
