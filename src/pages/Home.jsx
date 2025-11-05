@@ -1,7 +1,7 @@
 // src/pages/Home.jsx
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import InteractiveNotebook from '../components/InteractiveNotebook';
+// import InteractiveNotebook from '../components/InteractiveNotebook'; // REMOVED
 
 // The HowToUseModal component remains unchanged
 const HowToUseModal = ({ isOpen, onClose }) => {
@@ -34,11 +34,11 @@ const Home = () => {
     <>
       <HowToUseModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
-      {/* Main container now uses a two-column grid on medium screens and up */}
-      <div className="min-h-screen w-full bg-gray-900 text-white grid grid-cols-1 md:grid-cols-2 items-center">
+      {/* Main container changed from grid-cols-2 to grid-cols-1, and uses Tailwind's background */}
+      <div className="min-h-screen w-full bg-gray-900 text-white flex items-center justify-center">
 
-        {/* --- LEFT COLUMN: TEXT CONTENT --- */}
-        <div className="relative z-10 p-8 md:p-12 lg:p-16">
+        {/* --- CONTENT CENTERED (Previously LEFT COLUMN) --- */}
+        <div className="relative z-10 p-8 md:p-12 lg:p-16 max-w-4xl text-center">
           <div className="animate-fadeInUp">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-white drop-shadow-lg">
               WELCOME TO OriNotes
@@ -46,12 +46,12 @@ const Home = () => {
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-white drop-shadow-lg mt-2">
               <span className="text-cyan-400">Explore. Learn. Grow.</span>
             </h2>
-            <p className="mt-6 text-xl md:text-2xl text-gray-300 max-w-xl">
+            <p className="mt-6 text-xl md:text-2xl text-gray-300 max-w-xl mx-auto">
               Your secure online platform for course notes.
             </p>
           </div>
 
-          <div className="mt-12 flex flex-col sm:flex-row gap-6 animate-fadeIn delay-500">
+          <div className="mt-12 flex flex-col sm:flex-row gap-6 animate-fadeIn delay-500 justify-center">
             <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-full transition-transform transform hover:scale-105 shadow-lg">
               ℹ️ How to Use
             </button>
@@ -68,14 +68,9 @@ const Home = () => {
           </div>
         </div>
 
-        {/* --- RIGHT COLUMN: 3D MODEL --- */}
-        <div className="w-full h-full min-h-[50vh] md:min-h-screen">
-          <InteractiveNotebook />
-        </div>
-
-        {/* --- CONTACT US (Moved for better layout) --- */}
+        {/* --- CONTACT US (Positioned absolutely) --- */}
         <div className="absolute bottom-4 left-4 z-20 text-gray-400 text-sm">
-          <p><strong>Contact Us:</strong> <a href="mailto:learnify887@gmail.com" className="text-cyan-400 hover:underline">OriNotes887@gmail.com</a></p>
+          <p><strong>Contact Us:</strong> <a href="mailto:OriNotes887@gmail.com" className="text-cyan-400 hover:underline">OriNotes887@gmail.com</a></p>
         </div>
       </div>
     </>

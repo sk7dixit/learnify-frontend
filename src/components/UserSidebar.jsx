@@ -22,8 +22,8 @@ function UserSidebar() {
   return (
     <div className="fixed top-0 left-0 h-full w-64 bg-gray-900 text-gray-300 p-5 flex flex-col shadow-2xl z-30 border-r border-gray-700/50">
       <div className="flex items-center space-x-3 mb-10 pl-2">
-        <img src="/logo.png" alt="Learnify Logo" className="h-10 w-10"/>
-        <h1 className="text-3xl font-extrabold text-cyan-400 tracking-wider">Learnify</h1>
+        <img src="/logo.png" alt="OriNotes Logo" className="h-10 w-10"/>
+        <h1 className="text-3xl font-extrabold text-cyan-400 tracking-wider">OriNotes</h1>
       </div>
 
       <nav className="flex-grow w-full">

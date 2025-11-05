@@ -1,6 +1,13 @@
 /* src/index.css */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
+/* Define keyframes for subtle background animation */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 html,
 body,
 #root {
@@ -9,13 +16,18 @@ body,
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  /* overflow: hidden; */ /* <-- THIS LINE WAS REMOVED */
+  /* overflow: hidden; */
+
+  /* --- NEW FANTASTIC GRADIENT --- */
+  background: linear-gradient(135deg, #1A202C, #0F172A, #003366, #1A202C);
+  background-size: 400% 400%; /* For smooth, large animation */
+  animation: gradientShift 20s ease infinite; /* Slow, infinite movement */
 }
 
 body {
   font-family: 'Poppins', Arial, sans-serif;
   line-height: 1.5;
-  background-color: #1a202c;
+  /* background-color: #1a202c; REMOVED as gradient is applied to html/body */
   color: #f7fafc;
 }
 

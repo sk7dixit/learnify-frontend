@@ -108,8 +108,8 @@ function AppController() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-900 text-white">
-        <img src="/logo.png" alt="Learnify Logo" className="h-12 w-12 animate-pulse mr-4"/>
-        <div className="text-xl font-semibold">Initializing Learnify...</div>
+        <img src="/logo.png" alt="OriNotes Logo" className="h-12 w-12 animate-pulse mr-4"/>
+        <div className="text-xl font-semibold">Initializing OriNotes...</div>
       </div>
     );
   }

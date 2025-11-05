@@ -1,7 +1,7 @@
 // src/services/badgeService.js
 export const allBadges = {
     // Admin Only
-    developer: { name: 'Developer', symbol: '💻', description: 'The creator of Learnify.' },
+    developer: { name: 'Developer', symbol: '💻', description: 'The creator of OriNotes.' },
 
     // Upload Activity
     first_uploader: { name: 'First Uploader', symbol: '🥇', description: 'Awarded for uploading your very first note.' },
@@ -17,7 +17,7 @@ export const allBadges = {
     reviewer: { name: 'Reviewer', symbol: '🧐', description: 'Awarded for reviewing and rating 10 or more notes.' },
 
     // Milestone / Progress
-    og_member: { name: 'OG Member', symbol: '⏳', description: 'Joined in the early days of Learnify.' },
+    og_member: { name: 'OG Member', symbol: '⏳', description: 'Joined in the early days of OriNotes.' },
     loyal_learner: { name: 'Loyal Learner', symbol: '💖', description: 'For being an active member for over 6 months.' },
 
     // Special / Fun Badges
