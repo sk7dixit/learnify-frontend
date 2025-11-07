@@ -6,7 +6,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { debounce } from 'lodash';
 // Import the dedicated component for University search
-import BrowseNotesPage from './BrowseNotesModal';
+import BrowseNotesPage from './BrowseNotesPage';
 
 
 // =========================================================================
