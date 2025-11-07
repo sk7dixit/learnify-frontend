@@ -16,7 +16,7 @@ const INITIAL_USERS = [
 ];
 // --- END MOCK DATA ---
 
-const ActiveUsersTable = () => {
+const ActiveUsers = () => {
     const [users, setUsers] = useState(INITIAL_USERS);
     const [confirmation, setConfirmation] = useState(null); // { userId, username }
     const [error, setError] = useState('');
