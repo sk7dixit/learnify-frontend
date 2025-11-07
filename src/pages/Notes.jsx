@@ -6,253 +6,28 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { debounce } from 'lodash';
 // Import the dedicated component for University search
-import BrowseNotesPage from './BrowseNotesPage'; // Assuming you kept the file name BrowseNotesModal.jsx
-import { courseData, subjectData } from '../services/universityData';
+import BrowseNotesPage from './BrowseNotesModal';
 
 
 // =========================================================================
-// 1. HELPER DATA (Simplified local data for OriNotes/Legacy Flow)
+// 1. NOTES GROUPING & DISPLAY LOGIC
 // =========================================================================
-const contentData = {
-  institutionTypes: ["School", "College", "Competitive Exam"],
-  fields: {
-    College: ["Engineering", "Medical", "Arts", "Commerce"],
-    School: ["Class 12", "Class 11", "Class 10"],
-    "Competitive Exam": ["UPSC", "SSC", "Banking", "Railways"]
-  },
-  courses: {
-    Engineering: ["B.Tech", "M.Tech", "Diploma"],
-    Medical: ["MBBS", "BDS", "BAMS"],
-  },
-  subjects: {
-    "B.Tech": ["Computer Science", "Mechanical", "Civil", "Electronics"],
-    "MBBS": ["Anatomy", "Physiology", "Biochemistry"],
-    "Class 12": ["Physics", "Chemistry", "Maths", "Biology", "Computer Science"],
-  }
+
+// --- NEW HELPER: Group notes by Institution Name ---
+const groupNotesByInstitution = (notes) => {
+    if (!notes) return {};
+    return notes.reduce((acc, note) => {
+        // Use the university_name from your notes structure for grouping
+        const institution = note.university_name || note.institution_name || 'Personal/Unclassified';
+        if (!acc[institution]) {
+            acc[institution] = [];
+        }
+        acc[institution].push(note);
+        return acc;
+    }, {});
 };
 
-
-// =========================================================================
-// 2. MAIN COMPONENT LOGIC (Conditional Rendering)
-// =========================================================================
-function Notes() {
-  const [materialType, setMaterialType] = useState(null); // 'OriNotes', 'university', or null
-  const [filters, setFilters] = useState({});
-  const [notes, setNotes] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [favouriteIds, setFavouriteIds] = useState(new Set());
-
-  const navigate = useNavigate();
-  const { user } = useAuth();
-
-  // Unified fetch function for both search types
-  const fetchNotes = useCallback(async (currentFilters) => {
-    setLoading(true);
-    setError('');
-    try {
-      const params = { ...currentFilters };
-      if (materialType) {
-        params.material_type = materialType; // Passes 'OriNotes' or 'university'
-      }
-
-      const res = await api.get('/notes/filtered', { params });
-      setNotes(res.data);
-    } catch (err) {
-      setError("Failed to fetch notes. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [materialType]);
-
-  const debouncedFetch = useCallback(debounce(fetchNotes, 500), [fetchNotes]);
-
-  // Handle updates from the general search bar
-  useEffect(() => {
-    if (searchQuery.length > 2) {
-      debouncedFetch({ q: searchQuery });
-    } else if (searchQuery.length === 0) {
-      // Clear search results if query is empty
-      setNotes([]);
-    }
-  }, [searchQuery, debouncedFetch]);
-
-  // Fetch favourites on load
-  useEffect(() => {
-    const fetchInitialData = async () => {
-        try {
-            const res = await api.get('/notes/favourites/ids');
-            setFavouriteIds(new Set(res.data));
-        } catch (err) {
-            console.error("Could not fetch favourite IDs");
-        }
-    };
-    fetchInitialData();
-  }, []);
-
-  const handleToggleFavourite = async (noteId) => {
-      // ... (Favorite toggle logic remains the same)
-      const isFavourite = favouriteIds.has(noteId);
-      const newFavouriteIds = new Set(favouriteIds);
-      try {
-          if (isFavourite) {
-              await api.delete(`/notes/favourites/${noteId}`);
-              newFavouriteIds.delete(noteId);
-          } else {
-              await api.post(`/notes/favourites/${noteId}`);
-              newFavouriteIds.add(noteId);
-          }
-          setFavouriteIds(newFavouriteIds);
-      } catch (err) {
-          alert("Failed to update favourites.");
-      }
-  };
-
-  const handleFilterSelect = (key, value) => {
-      setFilters(prev => {
-          const newFilters = { ...prev };
-          // Reset child filters when a parent is changed
-          if (key === 'institution_type') {
-              delete newFilters.field;
-              delete newFilters.course;
-              delete newFilters.subject;
-          } else if (key === 'field') {
-              delete newFilters.course;
-              delete newFilters.subject;
-          } else if (key === 'course') {
-              delete newFilters.subject;
-          }
-          newFilters[key] = value;
-          // Trigger fetch only for OriNotes flow here
-          if (materialType === 'OriNotes') {
-              debouncedFetch(newFilters);
-          }
-          return newFilters;
-      });
-  };
-
-  const resetFlow = () => {
-      setMaterialType(null);
-      setFilters({});
-      setNotes([]);
-      setSearchQuery('');
-      // We don't need to manually refetch if the flow is reset to the initial screen
-  };
-
-  // Logic to determine the next selection step for OriNotes (Legacy)
-  const getNextOriNotesStep = () => {
-    if (!filters.institution_type) return { step: 'institutionType', options: contentData.institutionTypes.map(i => ({key: i, name: i})) };
-    const fieldOptions = contentData.fields[filters.institution_type] || [];
-    if (!filters.field && fieldOptions.length > 0) return { step: 'field', options: fieldOptions.map(f => ({key: f, name: f})) };
-    const courseOptions = contentData.courses[filters.field] || [];
-    if (courseOptions.length > 0 && !filters.course) return { step: 'course', options: courseOptions.map(c => ({key: c, name: c})) };
-    // If all filters are selected, show the list
-    return { step: 'notesList', options: [] };
-  };
-
-  // Determine what to render based on user choice
-  let step = null;
-  let options = [];
-  let stepTitles = {};
-
-  if (!materialType) {
-    // Initial State: Prompt for Material Type
-    step = 'materialType';
-    options = [{key: 'OriNotes', name: 'OriNotes Material (Legacy)'}, {key: 'university', name: 'University Material'}];
-    stepTitles = { materialType: "Select Material Type" };
-  } else if (materialType === 'OriNotes') {
-    // OriNotes Flow: Cascading filters
-    const oriNotesStep = getNextOriNotesStep();
-    step = oriNotesStep.step;
-    options = oriNotesStep.options;
-    stepTitles = {
-      institutionType: "Select Institution Type",
-      field: "Select Field / Class",
-      course: "Select Course / Degree",
-    };
-  } else if (materialType === 'university') {
-      // University Flow: Render the dedicated search component
-      // No selection grid needed here, the dedicated component handles it.
-  }
-
-  const handleSelection = (key, value) => {
-    if(key === 'materialType') {
-        setMaterialType(value);
-        setFilters({}); // Reset filters when changing material type
-        setNotes([]);
-    } else {
-        const stepKey = key.replace('Type', '_type').replace('Name', '_name');
-        handleFilterSelect(stepKey, value);
-    }
-  };
-
-
-  return (
-    <div className="w-full">
-        <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
-            <h1 className="text-4xl font-bold text-cyan-400">Browse Notes</h1>
-            {/* General search always available */}
-            <div className="relative w-full sm:w-1/2 md:w-1/3">
-                <input type="text" placeholder="Search notes by title..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
-                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-            </div>
-        </div>
-
-        {materialType && <button onClick={resetFlow} className="mb-8 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg">&larr; Start Over</button>}
-
-        {/* --- 1. Material Type Selection Grid (Initial Screen) --- */}
-        {step === 'materialType' && <SelectionGrid title={stepTitles[step]} options={options} onSelect={(val) => handleSelection(step, val)} />}
-
-        {/* --- 2. OriNotes Flow (Cascading Selection Grid) --- */}
-        {materialType === 'OriNotes' && step !== 'notesList' && (
-            <SelectionGrid title={stepTitles[step]} options={options} onSelect={(val) => handleSelection(step.replace('Type', '_type').replace('Name', '_name'), val)} />
-        )}
-
-        {/* --- 3. University Flow (Dedicated Component) --- */}
-        {materialType === 'university' && (
-             <BrowseNotesPage
-                 // This function is called when the user hits 'GET NOTES' in the University UI
-                 onSearch={(filters) => fetchNotes({ ...filters, material_type: 'university' })}
-                 universityData={courseData} // Passing relevant data from the uploaded file
-                 subjectData={subjectData}
-             />
-        )}
-
-        {/* --- 4. Notes List (Renders results for any flow, including search bar) --- */}
-        {(materialType === 'OriNotes' && step === 'notesList') || notes.length > 0 || searchQuery.length > 2 ? (
-            <div className="mt-8">
-                <h2 className="text-2xl font-bold text-gray-300 mb-4">Available Notes</h2>
-                {loading ? <p className="text-center text-gray-400">Loading...</p> : (
-                    error ? <p className="text-red-500">{error}</p> :
-                    notes.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {notes.map(note => <NoteCard key={note.id} note={note} user={user} navigate={navigate} isFavourite={favouriteIds.has(note.id)} onToggleFavourite={handleToggleFavourite} />)}
-                        </div>
-                    ) : <p className="text-gray-400">No notes found for this selection.</p>
-                )}
-            </div>
-        ) : null}
-    </div>
-  );
-}
-
-// --- HELPER COMPONENTS ---
-const SelectionGrid = ({ title, options, onSelect }) => (
-    <div className="text-center animate-fadeIn mb-8">
-      <h2 className="text-3xl font-bold mb-8 text-cyan-400">{title}</h2>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {options.map(option => (
-          <div key={option.key} onClick={() => onSelect(option.key)} className="p-6 bg-gray-800 rounded-lg border-2 border-transparent hover:border-cyan-500 cursor-pointer transition-all duration-300 transform hover:scale-105">
-            <h3 className="text-xl font-bold">{option.name}</h3>
-          </div>
-        ))}
-      </div>
-    </div>
-);
-
 const NoteCard = ({ note, user, navigate, isFavourite, onToggleFavourite }) => {
-    // ... (NoteCard logic remains the same)
     const isSubscribed = user.subscription_expiry && new Date(user.subscription_expiry) > new Date();
     const hasAccess = note.is_free || isSubscribed || user.role === 'admin';
     const canUseFreeViews = !isSubscribed && user.free_views < 2;
@@ -291,5 +66,161 @@ const NoteCard = ({ note, user, navigate, isFavourite, onToggleFavourite }) => {
         </div>
     );
 };
+
+
+// =========================================================================
+// 2. MAIN COMPONENT LOGIC
+// =========================================================================
+function Notes() {
+  // Simplified state for the new flow
+  const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [favouriteIds, setFavouriteIds] = useState(new Set());
+  const [showResults, setShowResults] = useState(false); // State to control result visibility
+
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Grouping happens immediately when notes state changes
+  const groupedNotes = groupNotesByInstitution(notes);
+
+  // --- Fetch Notes Logic ---
+  const fetchNotes = useCallback(async (currentFilters) => {
+    setLoading(true);
+    setError('');
+    setShowResults(true); // Show the results area immediately after search begins
+
+    try {
+      // Send simplified filters to the backend
+      const res = await api.get('/notes/filtered', { params: currentFilters });
+      setNotes(res.data); // Backend must return a flat list of notes
+    } catch (err) {
+      setError("Failed to fetch notes. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const debouncedFetch = useCallback(debounce(fetchNotes, 500), [fetchNotes]);
+
+  // Handle updates from the general search bar
+  useEffect(() => {
+    if (searchQuery.length > 2) {
+      debouncedFetch({ q: searchQuery, material_type: 'all' }); // Search across all types
+      setShowResults(true);
+    } else if (searchQuery.length === 0) {
+      // Clear search results if query is empty and no filters are active
+      setNotes([]);
+      setShowResults(false);
+    }
+  }, [searchQuery, debouncedFetch]);
+
+  // Fetch favourites on load
+  useEffect(() => {
+    const fetchInitialData = async () => {
+        try {
+            const res = await api.get('/notes/favourites/ids');
+            setFavouriteIds(new Set(res.data));
+        } catch (err) {
+            console.error("Could not fetch favourite IDs");
+        }
+    };
+    fetchInitialData();
+  }, []);
+
+  const handleToggleFavourite = async (noteId) => {
+      // ... (Favorite toggle logic remains the same)
+      const isFavourite = favouriteIds.has(noteId);
+      const newFavouriteIds = new Set(favouriteIds);
+      try {
+          if (isFavourite) {
+              await api.delete(`/notes/favourites/${noteId}`);
+              newFavouriteIds.delete(noteId);
+          } else {
+              await api.post(`/notes/favourites/${noteId}`);
+              newFavouriteIds.add(noteId);
+          }
+          setFavouriteIds(newFavouriteIds);
+      } catch (err) {
+          alert("Failed to update favourites.");
+      }
+  };
+
+  const resetFlow = () => {
+      setNotes([]);
+      setSearchQuery('');
+      setShowResults(false);
+  };
+
+  // Function to be passed to BrowseNotesPage for the university flow search
+  const handleUniversitySearch = (filters) => {
+      // Note: We force material_type to 'university' for this flow's API call
+      fetchNotes({ ...filters, material_type: 'university' });
+  };
+
+
+  return (
+    <div className="w-full">
+        <div className="flex justify-between items-center mb-8 flex-wrap gap-4">
+            <h1 className="text-4xl font-bold text-cyan-400">Browse Notes</h1>
+            {/* General search always available */}
+            <div className="relative w-full sm:w-1/2 md:w-1/3">
+                <input type="text" placeholder="Search notes by title..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:outline-none focus:ring-2 focus:ring-cyan-500" />
+                <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            </div>
+        </div>
+
+        {/* Start Over button remains visible if any search state exists */}
+        <button onClick={resetFlow} className="mb-8 bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded-lg">&larr; Start Over</button>
+
+        {/* --- DYNAMIC UNIVERSITY MATERIAL SEARCH COMPONENT --- */}
+        {/* We assume the user is only searching university material on this page */}
+        <BrowseNotesPage onSearch={handleUniversitySearch} />
+
+        {/* --- RESULTS LIST (Appears only after a search is executed) --- */}
+        {showResults && (
+            <div className="mt-8">
+                <h2 className="text-2xl font-bold text-gray-300 mb-4">
+                    Available Notes {notes.length > 0 ? `(${notes.length} found)` : ''}
+                </h2>
+                {loading ? (
+                    <p className="text-center text-gray-400">Loading...</p>
+                ) : (
+                    error ? (
+                        <p className="text-red-500">{error}</p>
+                    ) :
+                    notes.length > 0 ? (
+                        <div className="space-y-8">
+                            {Object.entries(groupedNotes).map(([institution, institutionNotes]) => (
+                                <div key={institution}>
+                                    <h3 className="text-xl font-bold text-cyan-400 mb-4 border-b border-gray-700 pb-2">
+                                        {institution}
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {institutionNotes.map(note => (
+                                            <NoteCard
+                                                key={note.id}
+                                                note={note}
+                                                user={user}
+                                                navigate={navigate}
+                                                isFavourite={favouriteIds.has(note.id)}
+                                                onToggleFavourite={handleToggleFavourite}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-gray-400">No notes found for your selection.</p>
+                    )
+                )}
+            </div>
+        )}
+    </div>
+  );
+}
 
 export default Notes;

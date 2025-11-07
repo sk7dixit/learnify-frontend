@@ -1,116 +1,13 @@
-// src/pages/BrowseNotesPage.jsx (or whatever your file is named)
-import React, { useState, useEffect, useMemo } from 'react';
+// src/pages/BrowseNotesModal.jsx (renamed to BrowseNotesPage)
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Search, ChevronDown, BookOpen } from 'lucide-react';
-// IMPORT THE REAL DATA:
-import { universityData, courseData, subjectData } from '../services/universityData'; 
+import api from '../services/api'; // Import your API instance
+import { courseData } from '../services/universityData'; // For all courses list
 
-
-// --- START: STATE AND HANDLERS ---
-const BrowseNotesPage = ({ onSearch }) => {
-    // 1. State changed to reflect the data structure
-    const [selectedState, setSelectedState] = useState('');
-    const [selectedInstitutionType, setSelectedInstitutionType] = useState('');
-    const [selectedInstitution, setSelectedInstitution] = useState('');
-    const [selectedCourse, setSelectedCourse] = useState('');
-    const [selectedSemester, setSelectedSemester] = useState('');
-    const [selectedSubject, setSelectedSubject] = useState('');
-    const [isSearching, setIsSearching] = useState(false);
-    
-    // --- Dynamic Options Calculation (Cascading Logic) ---
-
-    // 1. Get all unique state names
-    const stateOptions = useMemo(() => Object.keys(universityData), []);
-
-    // 2. Filter Institution Types based on selected state
-    const institutionTypeOptions = useMemo(() => 
-        selectedState ? Object.keys(universityData[selectedState]) : [], 
-        [selectedState]
-    );
-
-    // 3. Filter Institutions based on selected state and type
-    const institutionOptions = useMemo(() => {
-        if (!selectedState || !selectedInstitutionType) return [];
-        let list = universityData[selectedState][selectedInstitutionType] || [];
-        return [...list, "Other"];
-    }, [selectedState, selectedInstitutionType]);
-    
-    // 4. Get all Course options
-    const courseOptions = useMemo(() => Object.keys(courseData), []);
-
-    // 5. Filter Semesters based on selected course
-    const semesterOptions = useMemo(() => {
-        if (!selectedCourse || !courseData[selectedCourse]) return [];
-        const totalSemesters = courseData[selectedCourse].semesters;
-        return Array.from({ length: totalSemesters }, (_, i) => `${i + 1}`);
-    }, [selectedCourse]);
-
-    // 6. Filter Subjects based on selected course and semester
-    const subjectOptions = useMemo(() => {
-        if (!selectedCourse || !selectedSemester || !subjectData[selectedCourse]) return [];
-        // Map subject names from the correct semester array
-        const subjects = subjectData[selectedCourse][selectedSemester] || [];
-        return subjects;
-    }, [selectedCourse, selectedSemester]);
-
-
-    // --- Reset subsequent dropdowns when a parent changes ---
-    useEffect(() => {
-        setSelectedInstitutionType('');
-        setSelectedInstitution('');
-        setSelectedCourse('');
-        setSelectedSemester('');
-        setSelectedSubject('');
-    }, [selectedState]);
-
-    useEffect(() => {
-        setSelectedInstitution('');
-        setSelectedCourse('');
-        setSelectedSemester('');
-        setSelectedSubject('');
-    }, [selectedInstitutionType]);
-
-    useEffect(() => {
-        setSelectedSemester('');
-        setSelectedSubject('');
-    }, [selectedCourse]);
-
-    useEffect(() => {
-        setSelectedSubject('');
-    }, [selectedSemester]);
-
-
-    // --- Search Handler ---
-    const handleGetNotes = () => {
-        // Validation check should be updated to match the new fields
-        if (!selectedInstitution || !selectedCourse || !selectedSemester || !selectedSubject) {
-            console.error('ACTION BLOCKED: Please complete required selections before searching.');
-            return;
-        }
-
-        setIsSearching(true);
-        const searchCriteria = {
-            // Note: Your backend must be configured to search based on these keys
-            state: selectedState,
-            institution_name: selectedInstitution,
-            course: selectedCourse,
-            semester: selectedSemester,
-            subject: selectedSubject
-        };
-
-        // Call the parent function with the search criteria (which calls the API)
-        if(onSearch) {
-            onSearch(searchCriteria);
-        }
-        
-        setTimeout(() => { // Simulate loading end
-            setIsSearching(false);
-        }, 1500); 
-    };
-
-    const isSearchDisabled = !selectedInstitution || !selectedCourse || !selectedSemester || !selectedSubject || isSearching;
-    
-    // ... Dropdown Helper Component (keep this helper unchanged) ...
-    const Dropdown = ({ label, value, options, onChange, isDisabled }) => (
+// --- Dropdown Helper Component (Keep this unchanged) ---
+const Dropdown = ({ label, value, options, onChange, isDisabled }) => {
+// ... (Your Dropdown JSX/logic remains the same) ...
+    return (
         <div className="relative w-full">
             <label className="block text-sm font-semibold text-gray-300 mb-1">{label}</label>
             <div className="relative">
@@ -133,74 +30,121 @@ const BrowseNotesPage = ({ onSearch }) => {
             </div>
         </div>
     );
-    
-    // --- Render Component ---
+};
+// --------------------------------------------------------
+
+const BrowseNotesPage = ({ onSearch }) => {
+    // 1. State for selected filters
+    const [selectedCourse, setSelectedCourse] = useState('');
+    const [selectedSubject, setSelectedSubject] = useState('');
+    const [selectedSemester, setSelectedSemester] = useState('');
+    const [isSearching, setIsSearching] = useState(false);
+
+    // 2. State for dynamically loaded options
+    const [availableSubjects, setAvailableSubjects] = useState([]);
+    const [availableSemesters, setAvailableSemesters] = useState([]);
+
+    // Get all Course options from local file (Initial dropdown)
+    const allCourseOptions = useMemo(() => Object.keys(courseData), []);
+
+    // --- Dynamic Loading Effects ---
+
+    // Effect 1: Fetch AVAILABLE Subjects when Course changes
+    useEffect(() => {
+        setAvailableSubjects([]);
+        setAvailableSemesters([]);
+        setSelectedSubject('');
+        setSelectedSemester('');
+
+        if (selectedCourse) {
+            // NOTE: YOU MUST IMPLEMENT THIS NEW BACKEND ENDPOINT
+            api.get(`/notes/available-subjects`, { params: { course: selectedCourse } })
+                .then(res => setAvailableSubjects(res.data.subjects || []))
+                .catch(err => console.error("Failed to fetch available subjects:", err));
+        }
+    }, [selectedCourse]);
+
+    // Effect 2: Populate all possible Semesters when Subject changes
+    useEffect(() => {
+        setAvailableSemesters([]);
+        setSelectedSemester('');
+
+        if (selectedSubject && selectedCourse && courseData[selectedCourse]) {
+            const totalSemesters = courseData[selectedCourse].semesters;
+            // Populates all possible semesters (1, 2, 3...) for the selected course
+            const semesters = Array.from({ length: totalSemesters }, (_, i) => `${i + 1}`);
+            setAvailableSemesters(semesters);
+
+            // OPTIONAL: If you want to only show semesters that have notes for the selected subject,
+            // you'd need another API call here: `/notes/available-semesters?course=...&subject=...`
+        }
+    }, [selectedSubject, selectedCourse]);
+
+    // --- Search Handler ---
+    const handleGetNotes = () => {
+        if (!selectedCourse || !selectedSubject || !selectedSemester) {
+            console.error('ACTION BLOCKED: Please select a Course, Subject, and Semester.');
+            return;
+        }
+
+        setIsSearching(true);
+        const searchCriteria = {
+            course: selectedCourse,
+            subject: selectedSubject,
+            semester: selectedSemester,
+        };
+
+        // Call the parent function (Notes.jsx) which handles API fetch and results display
+        if(onSearch) {
+            onSearch(searchCriteria);
+        }
+
+        // Simulating loading end. The actual end will be in Notes.jsx after the fetch.
+        // We set it to false instantly so the button is ready for the next click.
+        setIsSearching(false);
+    };
+
+    const isSearchDisabled = !selectedCourse || !selectedSubject || !selectedSemester || isSearching;
+
     return (
         <div className="p-4 md:p-8">
             <div className="p-6 bg-gray-900 border border-cyan-800 rounded-xl shadow-2xl backdrop-filter backdrop-blur-sm max-w-6xl mx-auto">
                 <h2 className="text-3xl font-extrabold text-cyan-400 mb-6 flex items-center">
                     <BookOpen className="w-8 h-8 mr-3" />
-                    University Material Search
+                    Dynamic Material Search
                 </h2>
                 <p className="text-gray-400 mb-8">
-                    Select your academic path to find existing notes shared by the community.
+                    Select criteria to view available notes. Options are filtered by existing approved uploads.
                 </p>
 
-                {/* 6-Column Dropdown Grid - Responsive Layout (Updated fields) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                {/* Dropdown Grid (Simplified fields) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
-                    {/* 1. State Dropdown */}
-                    <Dropdown
-                        label="State"
-                        value={selectedState}
-                        options={stateOptions}
-                        onChange={setSelectedState}
-                        isDisabled={false}
-                    />
-                    
-                    {/* 2. Institution Type Dropdown */}
-                    <Dropdown
-                        label="Inst. Type"
-                        value={selectedInstitutionType}
-                        options={institutionTypeOptions}
-                        onChange={setSelectedInstitutionType}
-                        isDisabled={!selectedState}
-                    />
-
-                    {/* 3. Institution Name Dropdown */}
-                    <Dropdown
-                        label="Institution Name"
-                        value={selectedInstitution}
-                        options={institutionOptions}
-                        onChange={setSelectedInstitution}
-                        isDisabled={!selectedInstitutionType}
-                    />
-
-                    {/* 4. Course Dropdown */}
+                    {/* 1. Course Dropdown (Initial filter) */}
                     <Dropdown
                         label="Course"
                         value={selectedCourse}
-                        options={courseOptions}
+                        options={allCourseOptions}
                         onChange={setSelectedCourse}
-                        isDisabled={!selectedInstitution}
+                        isDisabled={false}
                     />
 
-                    {/* 5. Semester Dropdown */}
-                    <Dropdown
-                        label="Semester"
-                        value={selectedSemester}
-                        options={semesterOptions}
-                        onChange={setSelectedSemester}
-                        isDisabled={!selectedCourse}
-                    />
-
-                    {/* 6. Subject Dropdown */}
+                    {/* 2. Subject Dropdown (Filtered by API) */}
                     <Dropdown
                         label="Subject"
                         value={selectedSubject}
-                        options={subjectOptions}
+                        options={availableSubjects}
                         onChange={setSelectedSubject}
-                        isDisabled={!selectedSemester}
+                        isDisabled={!selectedCourse || availableSubjects.length === 0}
+                    />
+
+                    {/* 3. Semester Dropdown (Filtered by Course data) */}
+                    <Dropdown
+                        label="Semester"
+                        value={selectedSemester}
+                        options={availableSemesters}
+                        onChange={setSelectedSemester}
+                        isDisabled={!selectedSubject || availableSemesters.length === 0}
                     />
                 </div>
 
