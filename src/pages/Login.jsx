@@ -1,3 +1,4 @@
+// src/pages/Login.jsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -7,13 +8,13 @@ function Login() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
-  const [twoFactorCode, setTwoFactorCode] = useState(''); // 👈 NEW STATE
+  const [twoFactorCode, setTwoFactorCode] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginMethod, setLoginMethod] = useState('password');
   const [isOtpSent, setIsOtpSent] = useState(false);
-  const [twoFactorRequired, setTwoFactorRequired] = useState(false); // 👈 NEW STATE
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
@@ -24,6 +25,8 @@ function Login() {
     const { token, user } = response.data;
     login(token, user);
     setMessage('Login successful! Redirecting...');
+    // Ensure loading is set to false BEFORE redirecting on success
+    setLoading(false);
     // Redirect admin to admin dashboard, users to user dashboard
     const target = user.role === 'admin' ? '/admin-dashboard' : '/dashboard';
     setTimeout(() => navigate(target, { replace: true }), 1000);
@@ -37,8 +40,8 @@ function Login() {
     setIsOtpSent(false);
     setOtp('');
     setPassword('');
-    setTwoFactorRequired(false); // 👈 Reset 2FA status
-    setTwoFactorCode('');       // 👈 Clear 2FA code
+    setTwoFactorRequired(false);
+    setTwoFactorCode('');
   };
 
   // Dynamically determines the text for the main submit button
@@ -60,10 +63,12 @@ function Login() {
 
     try {
       if (loginMethod === 'password') {
-        // Handle password login
-        const payload = { identifier, password, twoFactorCode }; // 👈 Pass 2FA code
+        // Handle password or 2FA login
+        const payload = { identifier, password, twoFactorCode };
         const response = await api.post('/users/login', payload);
+
         handleSuccessfulLogin(response);
+
       } else {
         // Handle the two-step OTP login
         if (!isOtpSent) {
@@ -71,6 +76,8 @@ function Login() {
           const response = await api.post('/users/login-otp-request', { identifier });
           setMessage(response.data.message);
           setIsOtpSent(true);
+          // Turn loading off after sending OTP but before step 2
+          setLoading(false);
         } else {
           // Step 2: Verify the OTP
           const response = await api.post('/users/login-otp-verify', { identifier, otp });
@@ -83,14 +90,15 @@ function Login() {
         // New server response for 2FA requirement
         setTwoFactorRequired(true);
         setError(serverError.error);
+        // Turn loading OFF if 2FA is required, to allow user to input the code and submit again
+        setLoading(false);
       } else {
         setError(serverError?.error || 'An unexpected error occurred.');
-      }
-    } finally {
-      if (!twoFactorRequired) {
+        // Turn loading OFF on all other failures
         setLoading(false);
       }
     }
+    // Removed redundant finally block condition
   };
 
 

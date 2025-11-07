@@ -115,14 +115,15 @@ function Profile() {
   const { user, updateUserProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: '', age: '', mobileNumber: '', schoolCollege: '', bio: '',
+    name: '', // Removed age
+    mobileNumber: '', schoolCollege: '', bio: '',
   });
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (user) {
         setFormData({
-            name: user.name || '', age: user.age || '',
+            name: user.name || '', // Removed age
             mobileNumber: user.mobile_number || '',
             schoolCollege: user.school_college || '', bio: user.bio || '',
         });
@@ -201,7 +202,7 @@ function Profile() {
                  <form onSubmit={handleUpdate} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Name" className="w-full p-3 rounded-lg bg-gray-700 text-white focus:ring-2 focus:ring-cyan-500 outline-none"/>
-                        <input type="number" name="age" value={formData.age} onChange={handleChange} placeholder="Age" className="w-full p-3 rounded-lg bg-gray-700 text-white focus:ring-2 focus:ring-cyan-500 outline-none"/>
+                        {/* AGE FIELD REMOVED */}
                     </div>
                     <input type="tel" name="mobileNumber" value={formData.mobileNumber} onChange={handleChange} placeholder="Mobile Number" className="w-full p-3 rounded-lg bg-gray-700 text-white focus:ring-2 focus:ring-cyan-500 outline-none"/>
                     <input type="text" name="schoolCollege" value={formData.schoolCollege} onChange={handleChange} placeholder="School/College" className="w-full p-3 rounded-lg bg-gray-700 text-white focus:ring-2 focus:ring-cyan-500 outline-none"/>
