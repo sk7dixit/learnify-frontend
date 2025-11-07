@@ -7,11 +7,13 @@ function Login() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
+  const [twoFactorCode, setTwoFactorCode] = useState(''); // 👈 NEW STATE
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginMethod, setLoginMethod] = useState('password');
   const [isOtpSent, setIsOtpSent] = useState(false);
+  const [twoFactorRequired, setTwoFactorRequired] = useState(false); // 👈 NEW STATE
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
@@ -27,6 +29,28 @@ function Login() {
     setTimeout(() => navigate(target, { replace: true }), 1000);
   };
 
+  // Resets state when switching between login methods
+  const switchMethod = (method) => {
+    setLoginMethod(method);
+    setError('');
+    setMessage('');
+    setIsOtpSent(false);
+    setOtp('');
+    setPassword('');
+    setTwoFactorRequired(false); // 👈 Reset 2FA status
+    setTwoFactorCode('');       // 👈 Clear 2FA code
+  };
+
+  // Dynamically determines the text for the main submit button
+  const getButtonText = () => {
+    if (loading) {
+      if (loginMethod === 'password') return twoFactorRequired ? 'Verifying 2FA...' : 'Logging in...';
+      return isOtpSent ? 'Verifying...' : 'Sending...';
+    }
+    if (loginMethod === 'password') return twoFactorRequired ? 'Verify 2FA' : 'Log In';
+    return isOtpSent ? 'Login with OTP' : 'Send OTP';
+  };
+
   // A single submit handler for the form
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,7 +61,8 @@ function Login() {
     try {
       if (loginMethod === 'password') {
         // Handle password login
-        const response = await api.post('/users/login', { identifier, password });
+        const payload = { identifier, password, twoFactorCode }; // 👈 Pass 2FA code
+        const response = await api.post('/users/login', payload);
         handleSuccessfulLogin(response);
       } else {
         // Handle the two-step OTP login
@@ -53,31 +78,21 @@ function Login() {
         }
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'An unexpected error occurred.');
+      const serverError = err.response?.data;
+      if (serverError?.twoFactorRequired) {
+        // New server response for 2FA requirement
+        setTwoFactorRequired(true);
+        setError(serverError.error);
+      } else {
+        setError(serverError?.error || 'An unexpected error occurred.');
+      }
     } finally {
-      setLoading(false);
+      if (!twoFactorRequired) {
+        setLoading(false);
+      }
     }
   };
 
-  // Resets state when switching between login methods
-  const switchMethod = (method) => {
-    setLoginMethod(method);
-    setError('');
-    setMessage('');
-    setIsOtpSent(false);
-    setOtp('');
-    setPassword('');
-  };
-
-  // Dynamically determines the text for the main submit button
-  const getButtonText = () => {
-    if (loading) {
-      if (loginMethod === 'password') return 'Logging in...';
-      return isOtpSent ? 'Verifying...' : 'Sending...';
-    }
-    if (loginMethod === 'password') return 'Log In';
-    return isOtpSent ? 'Login with OTP' : 'Send OTP';
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-4">
@@ -108,12 +123,12 @@ function Login() {
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               required
-              disabled={isOtpSent} // Disable input after OTP is sent to prevent changes
+              disabled={isOtpSent || twoFactorRequired} // Disable if OTP sent or 2FA required
             />
           </div>
 
           {/* Conditionally render Password field */}
-          {loginMethod === 'password' && (
+          {loginMethod === 'password' && !twoFactorRequired && (
             <div>
               <label htmlFor="password" className="block text-lg font-medium text-gray-300 mb-2">Password</label>
               <div className="relative">
@@ -134,7 +149,23 @@ function Login() {
             </div>
           )}
 
-          {/* Conditionally render OTP field */}
+          {/* --- NEW: 2FA Code Input --- */}
+          {twoFactorRequired && (
+            <div>
+              <label htmlFor="twoFactorCode" className="block text-lg font-medium text-gray-300 mb-2">2FA Code</label>
+              <input
+                type="text"
+                id="twoFactorCode"
+                className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition duration-200"
+                placeholder="Enter 6-digit code from authenticator app"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value)}
+                required
+              />
+            </div>
+          )}
+
+          {/* Conditionally render OTP field for OTP login */}
           {loginMethod === 'otp' && isOtpSent && (
             <div>
               <label htmlFor="otp" className="block text-lg font-medium text-gray-300 mb-2">Enter OTP</label>

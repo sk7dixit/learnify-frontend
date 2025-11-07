@@ -37,7 +37,7 @@ import UserSubmissions from './pages/UserSubmissions';
 import SharedWithMe from './pages/SharedWithMe';
 import MyBadges from './pages/MyBadges';
 import AdminBadges from './pages/AdminBadges';
-import ManageNotes from './pages/ManageNotes'; // <-- IMPORT THE NEW PAGE
+import ManageNotes from './pages/ManageNotes';
 
 // --- Import layout components ---
 import PrivateRoute from './components/PrivateRoute';
@@ -51,9 +51,19 @@ function MainLayout() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-row">
-      <Sidebar />
-      <main className={`w-full transition-all duration-300 ${user ? 'ml-64' : ''}`}>
-        <div className="p-8">
+
+      {/* The Sidebar is now managed internally by its component, which handles
+        both desktop (fixed, hidden on mobile) and mobile (overlay) views.
+      */}
+      {user && <Sidebar />}
+
+      {/* Main content container.
+        - By default (mobile): ml-0 (no margin)
+        - On sm screens and larger (desktop): sm:ml-64 (margin of 64px, equal to sidebar width)
+      */}
+      <main className={`w-full transition-all duration-300 ${user ? 'sm:ml-64' : 'ml-0'}`}>
+        {/* Adjusted padding: p-4 for mobile, sm:p-8 for desktop */}
+        <div className="p-4 sm:p-8">
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Home />} />
@@ -92,8 +102,6 @@ function MainLayout() {
             <Route path="/approval-requests" element={<PrivateRoute requiredRole="admin"><ApprovalRequests /></PrivateRoute>} />
             <Route path="/user-submissions" element={<PrivateRoute requiredRole="admin"><UserSubmissions /></PrivateRoute>} />
             <Route path="/admin/badges" element={<PrivateRoute requiredRole="admin"><AdminBadges /></PrivateRoute>} />
-
-            {/* --- THIS IS THE NEW ROUTE --- */}
             <Route path="/manage-notes" element={<PrivateRoute requiredRole="admin"><ManageNotes /></PrivateRoute>} />
           </Routes>
         </div>

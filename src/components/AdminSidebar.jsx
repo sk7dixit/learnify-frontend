@@ -4,7 +4,7 @@ import { NavLink } from 'react-router-dom';
 import LogoutButton from './LogoutButton';
 import { useAuth } from '../context/AuthContext';
 
-// --- Icon Components (no changes here) ---
+// --- Icon Components ---
 const DashboardIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2.586l.293.293a1 1 0 001.414 0V18a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>;
 const UploadIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>;
 const NotesIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>;
@@ -13,15 +13,22 @@ const SettingsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-
 const ApprovalIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>;
 const SubmissionsIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>;
 const BadgeIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697A3.42 3.42 0 004.5 6.5l-1 7.5a3.42 3.42 0 003.335 2.803M16.165 4.697A3.42 3.42 0 0119.5 6.5l1 7.5a3.42 3.42 0 01-3.335 2.803m-6.664-9.606a12.023 12.023 0 016.664 0" /></svg>;
+const MenuIcon = () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>;
 
 
 function AdminSidebar() {
   const [isAccountOpen, setAccountOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { user } = useAuth();
   const activeLinkStyle = { backgroundColor: '#1e3a8a', color: 'white' };
 
-  return (
-    <div className="fixed top-0 left-0 h-full w-64 bg-gray-900 text-gray-300 p-5 flex flex-col shadow-2xl z-30 border-r border-gray-700/50">
+  // Helper to close mobile menu on navigation
+  const handleNavClick = () => {
+    setIsMobileMenuOpen(false);
+  };
+
+  const SidebarContent = () => (
+    <>
       <div className="flex items-center space-x-3 mb-10 pl-2">
         <img src="/logo.png" alt="OriNotes Logo" className="h-10 w-10"/>
         <h1 className="text-3xl font-extrabold text-cyan-400 tracking-wider">OriNotes</h1>
@@ -29,21 +36,17 @@ function AdminSidebar() {
 
       <nav className="flex-grow w-full">
         <ul className="space-y-2 w-full">
-          <li><NavLink to="/admin-dashboard" style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><DashboardIcon /><span>Dashboard</span></NavLink></li>
-          <li><NavLink to="/upload-notes" style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><UploadIcon /><span>Upload Note</span></NavLink></li>
-
-          {/* --- THIS IS THE NEW LINK --- */}
-          <li><NavLink to="/manage-notes" style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><NotesIcon /><span>Manage Notes</span></NavLink></li>
-
-          <li><NavLink to="/active-users" style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><UsersIcon /><span>Active Users</span></NavLink></li>
-          <li><NavLink to="/approval-requests" style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><ApprovalIcon /><span>Approvals</span></NavLink></li>
-          <li><NavLink to="/user-submissions" style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><SubmissionsIcon /><span>Submissions</span></NavLink></li>
-          <li><NavLink to="/admin/badges" style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><BadgeIcon /><span>Badges</span></NavLink></li>
-          <li><NavLink to="/admin-settings" style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><SettingsIcon /><span>Settings</span></NavLink></li>
+          <li><NavLink to="/admin-dashboard" onClick={handleNavClick} style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><DashboardIcon /><span>Dashboard</span></NavLink></li>
+          <li><NavLink to="/upload-notes" onClick={handleNavClick} style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><UploadIcon /><span>Upload Note</span></NavLink></li>
+          <li><NavLink to="/manage-notes" onClick={handleNavClick} style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><NotesIcon /><span>Manage Notes</span></NavLink></li>
+          <li><NavLink to="/active-users" onClick={handleNavClick} style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><UsersIcon /><span>Active Users</span></NavLink></li>
+          <li><NavLink to="/approval-requests" onClick={handleNavClick} style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><ApprovalIcon /><span>Approvals</span></NavLink></li>
+          <li><NavLink to="/user-submissions" onClick={handleNavClick} style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><SubmissionsIcon /><span>Submissions</span></NavLink></li>
+          <li><NavLink to="/admin/badges" onClick={handleNavClick} style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><BadgeIcon /><span>Badges</span></NavLink></li>
+          <li><NavLink to="/admin-settings" onClick={handleNavClick} style={({isActive}) => isActive ? activeLinkStyle : undefined} className="flex items-center space-x-4 text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200"><SettingsIcon /><span>Settings</span></NavLink></li>
         </ul>
       </nav>
 
-      {/* Account section remains the same */}
       <div className="w-full">
          <div className="border-t border-gray-700 mb-2"></div>
          <button onClick={() => setAccountOpen(!isAccountOpen)} className="w-full flex justify-between items-center text-lg p-3 rounded-lg hover:bg-gray-800 hover:text-white transition-colors duration-200">
@@ -55,13 +58,49 @@ function AdminSidebar() {
           </button>
           {isAccountOpen && (
             <div className="pl-6 pt-2 space-y-2 text-md">
-              <NavLink to="/change-password" style={({isActive}) => isActive ? activeLinkStyle : undefined} className="block text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800">Change Password</NavLink>
-              <NavLink to="/suggest" style={({isActive}) => isActive ? activeLinkStyle : undefined} className="block text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800">User Suggestions</NavLink>
+              <NavLink to="/change-password" onClick={handleNavClick} style={({isActive}) => isActive ? activeLinkStyle : undefined} className="block text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800">Change Password</NavLink>
+              <NavLink to="/suggest" onClick={handleNavClick} style={({isActive}) => isActive ? activeLinkStyle : undefined} className="block text-gray-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-gray-800">User Suggestions</NavLink>
               <div className="pt-2"><LogoutButton /></div>
             </div>
           )}
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* 1. Mobile Menu Button (Visible on mobile/small screens) */}
+      <button
+          onClick={() => setIsMobileMenuOpen(true)}
+          className="fixed top-4 left-4 z-40 p-2 bg-gray-800 rounded-lg shadow-lg sm:hidden text-white border border-cyan-500"
+          aria-label="Open menu"
+      >
+          <MenuIcon />
+      </button>
+
+      {/* 2. Desktop Sidebar (Visible on sm: and larger screens) */}
+      <div className="fixed top-0 left-0 h-full w-64 bg-gray-900 text-gray-300 p-5 flex-col shadow-2xl z-30 border-r border-gray-700/50 hidden sm:flex">
+          <SidebarContent />
+      </div>
+
+      {/* 3. Mobile Overlay Sidebar (Absolute position, slide-in/out effect) */}
+      <div
+        className={`fixed top-0 left-0 h-full w-64 bg-gray-900 text-gray-300 p-5 flex-col shadow-2xl z-50 border-r border-gray-700/50 transform transition-transform duration-300 ease-in-out ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} sm:hidden`}
+      >
+          <button onClick={() => setIsMobileMenuOpen(false)} className="absolute top-4 right-4 text-3xl text-gray-400 hover:text-white">
+              &times;
+          </button>
+          <SidebarContent />
+      </div>
+
+      {/* 4. Overlay Backdrop (Appears when mobile menu is open) */}
+      {isMobileMenuOpen && (
+        <div
+          onClick={() => setIsMobileMenuOpen(false)}
+          className="fixed inset-0 bg-black opacity-50 z-40 sm:hidden"
+        ></div>
+      )}
+    </>
   );
 }
 

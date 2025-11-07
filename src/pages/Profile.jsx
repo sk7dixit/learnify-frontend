@@ -5,6 +5,112 @@ import { useAuth } from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { allBadges } from '../services/badgeService';
 
+// --- NEW 2FA Component ---
+const TwoFactorAuthManager = ({ user, updateUserProfile }) => {
+    const [qrCodeUrl, setQrCodeUrl] = useState('');
+    const [setupSecret, setSetupSecret] = useState('');
+    const [verificationCode, setVerificationCode] = useState('');
+    const [setupStep, setSetupStep] = useState(1); // 1: Generate, 2: Verify
+    const [message, setMessage] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleGenerateSecret = async () => {
+        setLoading(true);
+        setMessage('');
+        try {
+            const res = await api.post('/users/2fa/generate-secret');
+            setQrCodeUrl(res.data.qrCodeUrl);
+            setSetupSecret(res.data.secret);
+            setSetupStep(2);
+            setMessage('Scan the QR code below in your authenticator app.');
+        } catch (err) {
+            setMessage('❌ Failed to generate 2FA secret.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleVerifySetup = async () => {
+        if (!verificationCode) return;
+        setLoading(true);
+        setMessage('');
+        try {
+            const res = await api.post('/users/2fa/verify-setup', {
+                token: verificationCode,
+                secret: setupSecret,
+            });
+            updateUserProfile(res.data.user); // Update context with new 2FA status
+            setMessage(res.data.message);
+            setSetupStep(1); // Reset form
+            setQrCodeUrl('');
+            setSetupSecret('');
+            setVerificationCode('');
+        } catch (err) {
+            setMessage(err.response?.data?.error || '❌ Invalid code. Verification failed.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDisable2FA = async () => {
+        if (!window.confirm("Are you sure you want to disable Two-Factor Authentication?")) return;
+        setLoading(true);
+        setMessage('');
+        try {
+            const res = await api.post('/users/2fa/disable');
+            updateUserProfile(res.data.user); // Update context
+            setMessage(res.data.message);
+        } catch (err) {
+            setMessage('❌ Failed to disable 2FA.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="border border-gray-700 p-6 rounded-lg bg-gray-900/50">
+            <h3 className="text-xl font-bold text-cyan-400 mb-4">Two-Factor Authentication (2FA)</h3>
+            <p className={`mb-4 font-semibold ${user.is_two_factor_enabled ? 'text-green-400' : 'text-red-400'}`}>
+                Status: {user.is_two_factor_enabled ? '✅ Enabled' : '❌ Disabled'}
+            </p>
+            {message && <p className="mb-4 text-sm text-center font-medium text-yellow-300">{message}</p>}
+
+            {user.is_two_factor_enabled ? (
+                <button onClick={handleDisable2FA} disabled={loading} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50">
+                    {loading ? 'Disabling...' : 'Disable 2FA'}
+                </button>
+            ) : (
+                setupStep === 1 ? (
+                    <button onClick={handleGenerateSecret} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50">
+                        {loading ? 'Generating...' : 'Enable 2FA'}
+                    </button>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="flex justify-center">
+                            <img src={qrCodeUrl} alt="2FA QR Code" className="w-48 h-48 border-4 border-white p-1 rounded-lg" />
+                        </div>
+                        <p className="text-sm text-gray-400 text-center">Secret Key: <span className="font-mono text-cyan-300">{setupSecret}</span></p>
+                        <input
+                            type="text"
+                            value={verificationCode}
+                            onChange={(e) => setVerificationCode(e.target.value)}
+                            placeholder="Enter 6-digit code to verify"
+                            className="w-full p-3 rounded-lg bg-gray-700 text-white focus:ring-2 focus:ring-cyan-500 outline-none"
+                        />
+                        <div className="flex justify-between space-x-2">
+                             <button onClick={() => setSetupStep(1)} disabled={loading} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50">Cancel</button>
+                             <button onClick={handleVerifySetup} disabled={loading} className="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50">
+                                {loading ? 'Verifying...' : 'Verify & Enable'}
+                            </button>
+                        </div>
+                    </div>
+                )
+            )}
+        </div>
+    );
+};
+
+// --- Main Profile Component ---
 function Profile() {
   const { user, updateUserProfile } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -57,6 +163,11 @@ function Profile() {
                     {isEditing ? 'Cancel' : 'Edit Profile'}
                 </button>
             </div>
+
+            <div className="border-t border-gray-700 my-8"></div>
+
+            {/* --- NEW 2FA MANAGER INTEGRATION --- */}
+            <TwoFactorAuthManager user={user} updateUserProfile={updateUserProfile} />
 
             <div className="border-t border-gray-700 my-8"></div>
 
