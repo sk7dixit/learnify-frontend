@@ -1,131 +1,193 @@
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
-import api from '../services/api';
-import { allBadges } from '../services/badgeService';
+import React, { useState } from 'react';
+import { LogOut, User, Menu, Search, Upload, BookOpen } from 'lucide-react';
+import BrowseNotesModal from './BrowseNotesModal';
 
-const StatCard = ({ title, value, icon, color }) => (
-    // Ensure padding is slightly reduced on mobile (p-4)
-    <div className={`bg-gray-800 p-4 sm:p-6 rounded-xl shadow-lg border-l-4 ${color}`}>
-        <div className="flex items-center">
-            <div className="mr-4 text-3xl">{icon}</div>
-            <div>
-                <p className="text-gray-400 text-xs sm:text-sm font-medium">{title}</p>
-                <p className="text-xl sm:text-2xl font-bold text-white">{value}</p>
+// Mock data and user name for demonstration
+const userName = "Shashwat";
+const userProfile = {
+    notesViewed: 0,
+    approvedUploads: 0,
+    viewsOnNotes: 0,
+    subscriptionStatus: "Free Tier"
+};
+
+const Dashboard = () => {
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    // State to control the visibility of the new browsing modal
+    const [showBrowseModal, setShowBrowseModal] = useState(false);
+
+    const handleLogout = () => {
+        // Implement your logout logic here
+        console.log("Logging out...");
+        // Close menu if open
+        setIsMenuOpen(false);
+    };
+
+    const handleSearchNotes = (criteria) => {
+        console.log("Searching with criteria:", criteria);
+        // This is where you would redirect the user to a search results page
+        setShowBrowseModal(false); // Close modal after search attempt
+    }
+
+    // --- Dashboard Content (JSX) ---
+    return (
+        <div className="min-h-screen bg-[#070e17] text-white font-inter">
+
+            {/* 1. HEADER (Fixed for mobile visibility) */}
+            <header className="p-4 bg-[#121a28] shadow-lg sticky top-0 z-20">
+                <div className="flex items-center justify-between">
+
+                    {/* Left: Menu Button and Welcome Text */}
+                    <div className="flex items-center space-x-3">
+                        <button
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            className="p-2 rounded-full bg-cyan-700 hover:bg-cyan-600 transition"
+                            aria-label="Toggle navigation menu"
+                        >
+                            <Menu className="w-6 h-6 text-white" />
+                        </button>
+
+                        {/* Welcome Text (Fixed to prevent wrapping/cutting off) */}
+                        <div className="md:block">
+                             <h1 className="text-xl font-bold text-gray-50 md:text-2xl whitespace-nowrap overflow-hidden text-ellipsis max-w-[200px] sm:max-w-none">
+                                Welcome Back, <span className="text-cyan-400">{userName}!</span>
+                            </h1>
+                        </div>
+                    </div>
+
+                    {/* Right: Quick Action (Opens the Browse Modal) */}
+                    <button
+                        onClick={() => setShowBrowseModal(true)}
+                        className="p-2 rounded-full bg-green-600 hover:bg-green-500 transition shadow-md"
+                        aria-label="Open Notes Search"
+                    >
+                        <Search className="w-6 h-6 text-white" />
+                    </button>
+
+                </div>
+            </header>
+
+            {/* 2. SIDEBAR NAVIGATION (Mobile Menu) */}
+            <div className={`fixed top-0 left-0 h-full w-64 bg-[#121a28] p-4 shadow-2xl z-30 transition-transform duration-300 ease-in-out transform ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+
+                <div className="flex justify-end mb-8">
+                    <button className="text-gray-400 hover:text-white text-3xl font-light" onClick={() => setIsMenuOpen(false)}>
+                        &times;
+                    </button>
+                </div>
+
+                <div className="space-y-4">
+                    <div className="flex items-center space-x-3 p-3 rounded-lg bg-cyan-700 bg-opacity-20 transition">
+                        <User className="w-5 h-5 text-cyan-400" />
+                        <span className="text-lg font-semibold text-cyan-200">My Profile</span>
+                    </div>
+
+                    <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center justify-center space-x-2 bg-red-600 text-white font-semibold py-3 rounded-lg hover:bg-red-700 transition shadow-md"
+                    >
+                        <LogOut className="w-5 h-5" />
+                        <span>Logout</span>
+                    </button>
+                </div>
             </div>
+
+            {/* 3. MAIN DASHBOARD CONTENT */}
+            <main className="p-4 md:p-8">
+
+                {/* 4-Stat Grid (Responsive layout) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+
+                    <Card icon="📚" title="Notes Viewed" value={userProfile.notesViewed} color="bg-red-700" />
+                    <Card icon="✅" title="Approved Uploads" value={userProfile.approvedUploads} color="bg-green-700" />
+                    <Card icon="👁️" title="Views on Your Notes" value={userProfile.viewsOnNotes} color="bg-purple-700" />
+                    <Card icon="⭐" title="Subscription Status" value={userProfile.subscriptionStatus} color="bg-yellow-700" details="Free Views Used: 0 / 2" />
+                </div>
+
+                {/* Your Achievements Section */}
+                <h2 className="text-3xl font-bold text-gray-50 mt-8 mb-6">Your Achievements</h2>
+                <div className="flex items-center space-x-6">
+                    <div className="flex flex-col items-center">
+                        <div className="text-5xl mb-2">⏳</div>
+                        <span className="text-gray-300">OG Member</span>
+                    </div>
+                    <div className="flex flex-col items-center cursor-pointer">
+                        <div className="w-16 h-16 border-4 border-gray-600 rounded-full flex items-center justify-center text-4xl text-gray-400 hover:border-cyan-400 transition">
+                            +
+                        </div>
+                        <span className="text-gray-300 mt-2">View All</span>
+                    </div>
+                </div>
+
+                {/* Ready for more? Section (Buttons) */}
+                <div className="mt-12 p-6 bg-[#1f283a] rounded-xl shadow-lg border border-gray-700">
+                    <h3 className="text-2xl font-bold text-cyan-400 mb-3">Ready for more?</h3>
+                    <p className="text-gray-300 mb-6">
+                        Contribute to the community or find the perfect notes for your next exam.
+                    </p>
+                    <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                        {/* Upload Button */}
+                        <button className="flex-1 bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition shadow-md flex items-center justify-center space-x-2">
+                            <Upload className="w-5 h-5" />
+                            <span>Upload a Note</span>
+                        </button>
+                        {/* Browse Button - Now opens the modal */}
+                        <button
+                            onClick={() => setShowBrowseModal(true)}
+                            className="flex-1 bg-cyan-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-cyan-700 transition shadow-md flex items-center justify-center space-x-2"
+                        >
+                            <Search className="w-5 h-5" />
+                            <span>Browse Notes</span>
+                        </button>
+                    </div>
+                </div>
+
+            </main>
+
+            {/* 4. BROWSE NOTES MODAL INTEGRATION */}
+            {showBrowseModal && (
+                <Modal onClose={() => setShowBrowseModal(false)}>
+                    {/* The modal content is the new component */}
+                    <BrowseNotesModal onSearch={handleSearchNotes} />
+                </Modal>
+            )}
         </div>
+    );
+};
+
+// Helper Stat Card Component
+const Card = ({ icon, title, value, color, details }) => (
+    <div className={`p-4 rounded-xl shadow-lg ${color} bg-opacity-30 border-t-4 border-b-4 border-opacity-70 flex flex-col justify-between h-32`}>
+        <div>
+            <p className="text-sm text-gray-300 font-medium">{title}</p>
+            <h3 className="text-3xl font-extrabold mt-1">
+                {value}
+            </h3>
+        </div>
+        {details && (
+            <p className="text-xs font-semibold text-yellow-300 pt-1 border-t border-gray-700 mt-2">
+                {details}
+            </p>
+        )}
     </div>
 );
 
-const Dashboard = () => {
-  const { user, logout, refreshUser } = useAuth();
-  const [dashboardData, setDashboardData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        await refreshUser(); // Refresh user data on dashboard load for latest badges
-        const [dashboardRes, statsRes] = await Promise.all([
-             api.get('/users/dashboard'),
-             api.get('/users/my-stats')
-        ]);
-        setDashboardData({ ...dashboardRes.data, ...statsRes.data });
-      } catch (err) {
-        console.error("Failed to load dashboard data", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
-
-  if (loading || !dashboardData) {
-    return <div className="text-center p-10">Loading your dashboard...</div>;
-  }
-
-  const isSubscriptionActive = dashboardData.subscriptionExpiry && new Date(dashboardData.subscriptionExpiry) > new Date();
-
-  return (
-    <div className="w-full animate-fadeIn">
-      {/* --- MOBILE-OPTIMIZED HEADER --- */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8">
-        <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 sm:mb-0">
-          Welcome Back, <span className="text-cyan-400">{dashboardData.name.split(' ')[0]}!</span>
-        </h1>
-
-        {/* Profile and Logout condensed on mobile */}
-        <div className="flex items-center space-x-3 sm:space-x-4">
-            <Link to="/profile" className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors">
-                 {/* Reduced size of profile avatar on mobile */}
-                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-cyan-800 rounded-full flex items-center justify-center font-bold text-white text-md sm:text-lg">{user.name.charAt(0).toUpperCase()}</div>
-                 {/* "My Profile" text is visible on all screens */}
-                 <span className="text-sm sm:text-base">My Profile</span>
-            </Link>
+// Helper Modal Component for the BrowseNotesModal
+const Modal = ({ children, onClose }) => (
+    // Fixed inset 0 makes it full screen, z-50 ensures it's on top
+    <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-start justify-center p-4">
+        {/* max-w-4xl makes it responsive but large on desktop */}
+        <div className="relative max-h-full w-full max-w-4xl mt-10">
             <button
-              onClick={() => { logout(); navigate('/login'); }}
-              className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 sm:px-4 rounded-lg transition duration-300 text-sm"
+                onClick={onClose}
+                className="absolute -top-10 right-0 text-white text-4xl font-light z-50 hover:text-cyan-400 transition"
+                aria-label="Close modal"
             >
-              Logout
+                &times;
             </button>
+            {children}
         </div>
-      </div>
-      {/* --- END MOBILE-OPTIMIZED HEADER --- */}
-
-      {/* Stat Cards: Grid layout optimized for 2 columns on mobile, 4 on desktop */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-        <StatCard title="Notes Viewed" value={dashboardData.notesViewed} icon="📚" color="border-cyan-500" />
-        <StatCard title="Approved Uploads" value={dashboardData.approved} icon="✅" color="border-green-500" />
-        <StatCard title="Views on Your Notes" value={dashboardData.total_views} icon="👁️" color="border-purple-500" />
-
-        {/* Subscription Status Card */}
-        <div className={`p-4 sm:p-6 rounded-xl shadow-lg border-l-4 ${isSubscriptionActive ? 'bg-green-900/50 border-green-500' : 'bg-yellow-900/50 border-yellow-500'}`}>
-            <p className="text-gray-400 text-xs sm:text-sm font-medium">Subscription Status</p>
-            <p className="text-xl sm:text-2xl font-bold text-white">{isSubscriptionActive ? 'Active' : 'Free Tier'}</p>
-            <p className="text-xs text-gray-400 mt-1">
-                {isSubscriptionActive ? `Expires: ${new Date(dashboardData.subscriptionExpiry).toLocaleDateString()}` : `Free Views Used: ${dashboardData.free_views} / 2`}
-            </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-8">
-        <div className="lg:col-span-2 bg-gray-800 p-6 rounded-xl shadow-lg">
-            <h2 className="text-2xl font-bold text-white mb-4">Your Achievements</h2>
-            <div className="flex flex-wrap gap-4 items-center">
-                {(user.badges && user.badges.length > 0) ? user.badges.map(badgeKey => {
-                    const badge = allBadges[badgeKey];
-                    if (!badge) return null;
-                    return (
-                        <div key={badgeKey} className="group relative flex flex-col items-center text-center" title={badge.name}>
-                            <span className="text-5xl transform group-hover:scale-125 transition-transform">{badge.symbol}</span>
-                            <p className="text-xs text-gray-400 mt-1">{badge.name}</p>
-                        </div>
-                    )
-                }) : <p className="text-gray-500">Upload and review notes to earn badges!</p>}
-                <Link to="/my-badges" className="flex flex-col items-center justify-center text-gray-500 hover:text-white" title="View All Badges">
-                    <span className="text-4xl border-2 border-dashed border-gray-600 rounded-full w-14 h-14 flex items-center justify-center transition-colors hover:border-white hover:text-cyan-400">+</span>
-                    <p className="text-xs mt-1">View All</p>
-                </Link>
-            </div>
-        </div>
-        {/* Quick Action Card - responsive to 1/3 width on large screens */}
-        <div className="bg-cyan-800/50 p-6 rounded-xl shadow-lg flex flex-col justify-center items-center text-center">
-            <h2 className="text-2xl font-bold text-white">Ready for more?</h2>
-            <p className="text-cyan-200 my-4">Contribute to the community or find the perfect notes for your next exam.</p>
-            <div className="flex space-x-4">
-                <Link to="/my-uploads" className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">Upload a Note</Link>
-                <Link to="/notes" className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">Browse Notes</Link>
-            </div>
-        </div>
-      </div>
     </div>
-  );
-};
+);
 
 export default Dashboard;
