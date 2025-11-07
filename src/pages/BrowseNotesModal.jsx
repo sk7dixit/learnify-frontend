@@ -60,7 +60,7 @@ const UNIVERSITY_STRUCTURE_MOCK = [
 // --- END MOCK DATA ---
 
 
-const BrowseNotesModal = ({ onSearch }) => {
+const BrowseNotesPage = ({ onSearch }) => { // Renamed from BrowseNotesModal
     // State to hold the current selections
     const [selectedCollege, setSelectedCollege] = useState('');
     const [selectedCourse, setSelectedCourse] = useState('');
@@ -110,6 +110,9 @@ const BrowseNotesModal = ({ onSearch }) => {
 
     // --- Reset subsequent dropdowns when a parent changes ---
     useEffect(() => {
+        // We are using alert(), which is forbidden. I will replace this with a console error
+        // in case this component is used in a non-modal context where state resets could be confusing.
+        // For the purpose of state management, these resets are necessary.
         setSelectedCourse('');
         setSelectedSemester('');
         setSelectedSubject('');
@@ -135,7 +138,7 @@ const BrowseNotesModal = ({ onSearch }) => {
     // --- Search Handler ---
     const handleGetNotes = () => {
         if (!selectedCollege || !selectedCourse || !selectedSemester || !selectedSubject || !selectedChapter) {
-            alert('Please complete all selections before searching.');
+            console.error('ACTION BLOCKED: Please complete all selections before searching.');
             return;
         }
 
@@ -157,7 +160,7 @@ const BrowseNotesModal = ({ onSearch }) => {
             if(onSearch) {
                 onSearch({ college: selectedCollege, course: selectedCourse, subject: selectedSubject, chapter: selectedChapter });
             }
-            alert(`Notes Found for: ${selectedChapter} in ${selectedSubject}. (See console for search query)`);
+            console.log(`[SUCCESS] Notes Found for: ${selectedChapter} in ${selectedSubject}.`);
         }, 1500); // Simulate API loading time
     };
 
@@ -192,93 +195,96 @@ const BrowseNotesModal = ({ onSearch }) => {
 
     // --- Render Component ---
     return (
-        <div className="p-8 bg-gray-900 border border-cyan-800 rounded-xl shadow-2xl backdrop-filter backdrop-blur-sm">
-            <h2 className="text-3xl font-extrabold text-cyan-400 mb-6 flex items-center">
-                <BookOpen className="w-8 h-8 mr-3" />
-                University Material Search
-            </h2>
-            <p className="text-gray-400 mb-8">
-                Select your academic path to find existing notes shared by the community.
-            </p>
+        <div className="p-4 md:p-8 bg-[#070e17] min-h-full">
+            <div className="p-6 bg-gray-900 border border-cyan-800 rounded-xl shadow-2xl backdrop-filter backdrop-blur-sm max-w-6xl mx-auto">
+                <h2 className="text-3xl font-extrabold text-cyan-400 mb-6 flex items-center">
+                    <BookOpen className="w-8 h-8 mr-3" />
+                    University Material Search
+                </h2>
+                <p className="text-gray-400 mb-8">
+                    Select your academic path to find existing notes shared by the community.
+                </p>
 
-            {/* 5-Column Dropdown Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* 5-Column Dropdown Grid - Responsive Layout */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
 
-                {/* 1. College Dropdown */}
-                <Dropdown
-                    label="College Name"
-                    value={selectedCollege}
-                    options={collegeOptions}
-                    onChange={setSelectedCollege}
-                    isDisabled={false}
-                />
+                    {/* 1. College Dropdown */}
+                    <Dropdown
+                        label="College Name"
+                        value={selectedCollege}
+                        options={collegeOptions}
+                        onChange={setSelectedCollege}
+                        isDisabled={false}
+                    />
 
-                {/* 2. Course Dropdown */}
-                <Dropdown
-                    label="Course"
-                    value={selectedCourse}
-                    options={courseOptions}
-                    onChange={setSelectedCourse}
-                    isDisabled={!selectedCollege}
-                />
+                    {/* 2. Course Dropdown */}
+                    <Dropdown
+                        label="Course"
+                        value={selectedCourse}
+                        options={courseOptions}
+                        onChange={setSelectedCourse}
+                        isDisabled={!selectedCollege}
+                    />
 
-                {/* 3. Semester Dropdown */}
-                <Dropdown
-                    label="Semester"
-                    value={selectedSemester}
-                    options={semesterOptions}
-                    onChange={setSelectedSemester}
-                    isDisabled={!selectedCourse}
-                />
+                    {/* 3. Semester Dropdown */}
+                    <Dropdown
+                        label="Semester"
+                        value={selectedSemester}
+                        options={semesterOptions}
+                        onChange={setSelectedSemester}
+                        isDisabled={!selectedCourse}
+                    />
 
-                {/* 4. Subject Dropdown */}
-                <Dropdown
-                    label="Subject"
-                    value={selectedSubject}
-                    options={subjectOptions}
-                    onChange={setSelectedSubject}
-                    isDisabled={!selectedSemester}
-                />
+                    {/* 4. Subject Dropdown */}
+                    <Dropdown
+                        label="Subject"
+                        value={selectedSubject}
+                        options={subjectOptions}
+                        onChange={setSelectedSubject}
+                        isDisabled={!selectedSemester}
+                    />
 
-                {/* 5. Chapter Dropdown */}
-                <Dropdown
-                    label="Chapter/Topic"
-                    value={selectedChapter}
-                    options={chapterOptions}
-                    onChange={setSelectedChapter}
-                    isDisabled={!selectedSubject}
-                />
+                    {/* 5. Chapter Dropdown */}
+                    <Dropdown
+                        label="Chapter/Topic"
+                        value={selectedChapter}
+                        options={chapterOptions}
+                        onChange={setSelectedChapter}
+                        isDisabled={!selectedSubject}
+                    />
+                </div>
+
+                {/* GET Button */}
+                <div className="mt-8 text-center">
+                    <button
+                        onClick={handleGetNotes}
+                        disabled={isSearchDisabled}
+                        className={`
+                            w-full md:w-auto px-12 py-3 text-lg font-bold rounded-lg transition duration-300 transform hover:scale-[1.02]
+                            flex items-center justify-center space-x-2 shadow-xl
+                            ${isSearchDisabled
+                                ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-green-500 to-teal-500 text-white hover:from-green-600 hover:to-teal-600'
+                            }
+                        `}
+                    >
+                        {isSearching ? (
+                            <>
+                                <Search className="w-5 h-5 animate-spin" />
+                                <span>Searching...</span>
+                            </>
+                        ) : (
+                            <>
+                                <Search className="w-5 h-5" />
+                                <span>GET NOTES</span>
+                            </>
+                        )}
+                    </button>
+                </div>
             </div>
-
-            {/* GET Button */}
-            <div className="mt-8 text-center">
-                <button
-                    onClick={handleGetNotes}
-                    disabled={isSearchDisabled}
-                    className={`
-                        w-full md:w-auto px-12 py-3 text-lg font-bold rounded-lg transition duration-300 transform hover:scale-[1.02]
-                        flex items-center justify-center space-x-2 shadow-xl
-                        ${isSearchDisabled
-                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-green-500 to-teal-500 text-white hover:from-green-600 hover:to-teal-600'
-                        }
-                    `}
-                >
-                    {isSearching ? (
-                        <>
-                            <Search className="w-5 h-5 animate-spin" />
-                            <span>Searching...</span>
-                        </>
-                    ) : (
-                        <>
-                            <Search className="w-5 h-5" />
-                            <span>GET NOTES</span>
-                        </>
-                    )}
-                </button>
-            </div>
+            {/* Note: The results area would go here */}
         </div>
     );
 };
 
-export default BrowseNotesModal;
+export default BrowseNotesPage; // Final export
