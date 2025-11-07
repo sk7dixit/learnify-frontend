@@ -166,4 +166,4 @@ const ActiveUsers = () => {
     );
 };
 
-export default ActiveUsersTable;
+export default ActiveUsers;
