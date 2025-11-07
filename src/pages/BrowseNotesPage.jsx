@@ -1,174 +1,115 @@
+// src/pages/BrowseNotesPage.jsx (or whatever your file is named)
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, ChevronDown, BookOpen } from 'lucide-react';
-
-// --- MOCK DATA STRUCTURE (Replace with API/Firestore Fetch) ---
-// In a real app, this data would be fetched from the backend (e.g., /api/metadata/university_structure)
-const UNIVERSITY_STRUCTURE_MOCK = [
-    {
-        college: "Tech University",
-        courses: [
-            {
-                name: "Computer Science",
-                semesters: [
-                    {
-                        number: "Semester 1",
-                        subjects: [
-                            { name: "Programming Basics", chapters: ["Variables", "Loops", "Functions"] },
-                            { name: "Applied Physics", chapters: ["Mechanics", "Thermodynamics"] },
-                        ]
-                    },
-                    {
-                        number: "Semester 2",
-                        subjects: [
-                            { name: "Data Structures", chapters: ["Arrays", "Linked Lists", "Trees"] },
-                            { name: "Calculus II", chapters: ["Integrals", "Differential Equations"] },
-                        ]
-                    },
-                ]
-            },
-            {
-                name: "Electrical Engineering",
-                semesters: [
-                    {
-                        number: "Semester 1",
-                        subjects: [
-                            { name: "Circuit Theory", chapters: ["Ohm's Law", "Thevenin's Theorem"] },
-                        ]
-                    },
-                ]
-            }
-        ]
-    },
-    {
-        college: "Management School",
-        courses: [
-            {
-                name: "MBA",
-                semesters: [
-                    {
-                        number: "Semester 1",
-                        subjects: [
-                            { name: "Financial Accounting", chapters: ["P&L", "Balance Sheets"] },
-                            { name: "Marketing Strategy", chapters: ["4 Ps", "Market Segmentation"] },
-                        ]
-                    }
-                ]
-            }
-        ]
-    }
-];
-// --- END MOCK DATA ---
+// IMPORT THE REAL DATA:
+import { universityData, courseData, subjectData } from '../services/universityData'; 
 
 
-const BrowseNotesPage = ({ onSearch }) => { // Renamed from BrowseNotesModal
-    // State to hold the current selections
-    const [selectedCollege, setSelectedCollege] = useState('');
+// --- START: STATE AND HANDLERS ---
+const BrowseNotesPage = ({ onSearch }) => {
+    // 1. State changed to reflect the data structure
+    const [selectedState, setSelectedState] = useState('');
+    const [selectedInstitutionType, setSelectedInstitutionType] = useState('');
+    const [selectedInstitution, setSelectedInstitution] = useState('');
     const [selectedCourse, setSelectedCourse] = useState('');
     const [selectedSemester, setSelectedSemester] = useState('');
     const [selectedSubject, setSelectedSubject] = useState('');
-    const [selectedChapter, setSelectedChapter] = useState('');
     const [isSearching, setIsSearching] = useState(false);
-
+    
     // --- Dynamic Options Calculation (Cascading Logic) ---
 
-    // 1. Get all unique college names
-    const collegeOptions = useMemo(() =>
-        UNIVERSITY_STRUCTURE_MOCK.map(item => item.college),
-        []
+    // 1. Get all unique state names
+    const stateOptions = useMemo(() => Object.keys(universityData), []);
+
+    // 2. Filter Institution Types based on selected state
+    const institutionTypeOptions = useMemo(() => 
+        selectedState ? Object.keys(universityData[selectedState]) : [], 
+        [selectedState]
     );
 
-    // 2. Filter courses based on selected college
-    const courseOptions = useMemo(() => {
-        const collegeData = UNIVERSITY_STRUCTURE_MOCK.find(c => c.college === selectedCollege);
-        return collegeData ? collegeData.courses.map(course => course.name) : [];
-    }, [selectedCollege]);
+    // 3. Filter Institutions based on selected state and type
+    const institutionOptions = useMemo(() => {
+        if (!selectedState || !selectedInstitutionType) return [];
+        let list = universityData[selectedState][selectedInstitutionType] || [];
+        return [...list, "Other"];
+    }, [selectedState, selectedInstitutionType]);
+    
+    // 4. Get all Course options
+    const courseOptions = useMemo(() => Object.keys(courseData), []);
 
-    // 3. Filter semesters based on selected course
+    // 5. Filter Semesters based on selected course
     const semesterOptions = useMemo(() => {
-        const collegeData = UNIVERSITY_STRUCTURE_MOCK.find(c => c.college === selectedCollege);
-        const courseData = collegeData?.courses.find(cs => cs.name === selectedCourse);
-        return courseData ? courseData.semesters.map(sem => sem.number) : [];
-    }, [selectedCollege, selectedCourse]);
+        if (!selectedCourse || !courseData[selectedCourse]) return [];
+        const totalSemesters = courseData[selectedCourse].semesters;
+        return Array.from({ length: totalSemesters }, (_, i) => `${i + 1}`);
+    }, [selectedCourse]);
 
-    // 4. Filter subjects based on selected semester
+    // 6. Filter Subjects based on selected course and semester
     const subjectOptions = useMemo(() => {
-        const collegeData = UNIVERSITY_STRUCTURE_MOCK.find(c => c.college === selectedCollege);
-        const courseData = collegeData?.courses.find(cs => cs.name === selectedCourse);
-        const semesterData = courseData?.semesters.find(sem => sem.number === selectedSemester);
-        return semesterData ? semesterData.subjects.map(sub => sub.name) : [];
-    }, [selectedCollege, selectedCourse, selectedSemester]);
-
-    // 5. Filter chapters based on selected subject
-    const chapterOptions = useMemo(() => {
-        const collegeData = UNIVERSITY_STRUCTURE_MOCK.find(c => c.college === selectedCollege);
-        const courseData = collegeData?.courses.find(cs => cs.name === selectedCourse);
-        const semesterData = courseData?.semesters.find(sem => sem.number === selectedSemester);
-        const subjectData = semesterData?.subjects.find(sub => sub.name === selectedSubject);
-        return subjectData ? subjectData.chapters : [];
-    }, [selectedCollege, selectedCourse, selectedSemester, selectedSubject]);
+        if (!selectedCourse || !selectedSemester || !subjectData[selectedCourse]) return [];
+        // Map subject names from the correct semester array
+        const subjects = subjectData[selectedCourse][selectedSemester] || [];
+        return subjects;
+    }, [selectedCourse, selectedSemester]);
 
 
     // --- Reset subsequent dropdowns when a parent changes ---
     useEffect(() => {
-        // We are using alert(), which is forbidden. I will replace this with a console error
-        // in case this component is used in a non-modal context where state resets could be confusing.
-        // For the purpose of state management, these resets are necessary.
+        setSelectedInstitutionType('');
+        setSelectedInstitution('');
         setSelectedCourse('');
         setSelectedSemester('');
         setSelectedSubject('');
-        setSelectedChapter('');
-    }, [selectedCollege]);
+    }, [selectedState]);
+
+    useEffect(() => {
+        setSelectedInstitution('');
+        setSelectedCourse('');
+        setSelectedSemester('');
+        setSelectedSubject('');
+    }, [selectedInstitutionType]);
 
     useEffect(() => {
         setSelectedSemester('');
         setSelectedSubject('');
-        setSelectedChapter('');
     }, [selectedCourse]);
 
     useEffect(() => {
         setSelectedSubject('');
-        setSelectedChapter('');
     }, [selectedSemester]);
-
-    useEffect(() => {
-        setSelectedChapter('');
-    }, [selectedSubject]);
 
 
     // --- Search Handler ---
     const handleGetNotes = () => {
-        if (!selectedCollege || !selectedCourse || !selectedSemester || !selectedSubject || !selectedChapter) {
-            console.error('ACTION BLOCKED: Please complete all selections before searching.');
+        // Validation check should be updated to match the new fields
+        if (!selectedInstitution || !selectedCourse || !selectedSemester || !selectedSubject) {
+            console.error('ACTION BLOCKED: Please complete required selections before searching.');
             return;
         }
 
         setIsSearching(true);
-        console.log("Searching for notes with:", {
-            college: selectedCollege,
+        const searchCriteria = {
+            // Note: Your backend must be configured to search based on these keys
+            state: selectedState,
+            institution_name: selectedInstitution,
             course: selectedCourse,
             semester: selectedSemester,
-            subject: selectedSubject,
-            chapter: selectedChapter
-        });
+            subject: selectedSubject
+        };
 
-        // ⚠️ In a real application, you would make an API call here:
-        // api.get('/api/notes/search', { params: { college, course, ... }})
-
-        setTimeout(() => {
+        // Call the parent function with the search criteria (which calls the API)
+        if(onSearch) {
+            onSearch(searchCriteria);
+        }
+        
+        setTimeout(() => { // Simulate loading end
             setIsSearching(false);
-            // Call the parent function with the search criteria
-            if(onSearch) {
-                onSearch({ college: selectedCollege, course: selectedCourse, subject: selectedSubject, chapter: selectedChapter });
-            }
-            console.log(`[SUCCESS] Notes Found for: ${selectedChapter} in ${selectedSubject}.`);
-        }, 1500); // Simulate API loading time
+        }, 1500); 
     };
 
-    // Check if the GET button should be enabled
-    const isSearchDisabled = !selectedCollege || !selectedCourse || !selectedSemester || !selectedSubject || !selectedChapter || isSearching;
-
-
-    // --- Dropdown Helper Component ---
+    const isSearchDisabled = !selectedInstitution || !selectedCourse || !selectedSemester || !selectedSubject || isSearching;
+    
+    // ... Dropdown Helper Component (keep this helper unchanged) ...
     const Dropdown = ({ label, value, options, onChange, isDisabled }) => (
         <div className="relative w-full">
             <label className="block text-sm font-semibold text-gray-300 mb-1">{label}</label>
@@ -192,10 +133,10 @@ const BrowseNotesPage = ({ onSearch }) => { // Renamed from BrowseNotesModal
             </div>
         </div>
     );
-
+    
     // --- Render Component ---
     return (
-        <div className="p-4 md:p-8 bg-[#070e17] min-h-full">
+        <div className="p-4 md:p-8">
             <div className="p-6 bg-gray-900 border border-cyan-800 rounded-xl shadow-2xl backdrop-filter backdrop-blur-sm max-w-6xl mx-auto">
                 <h2 className="text-3xl font-extrabold text-cyan-400 mb-6 flex items-center">
                     <BookOpen className="w-8 h-8 mr-3" />
@@ -205,28 +146,46 @@ const BrowseNotesPage = ({ onSearch }) => { // Renamed from BrowseNotesModal
                     Select your academic path to find existing notes shared by the community.
                 </p>
 
-                {/* 5-Column Dropdown Grid - Responsive Layout */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                {/* 6-Column Dropdown Grid - Responsive Layout (Updated fields) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
 
-                    {/* 1. College Dropdown */}
+                    {/* 1. State Dropdown */}
                     <Dropdown
-                        label="College Name"
-                        value={selectedCollege}
-                        options={collegeOptions}
-                        onChange={setSelectedCollege}
+                        label="State"
+                        value={selectedState}
+                        options={stateOptions}
+                        onChange={setSelectedState}
                         isDisabled={false}
                     />
+                    
+                    {/* 2. Institution Type Dropdown */}
+                    <Dropdown
+                        label="Inst. Type"
+                        value={selectedInstitutionType}
+                        options={institutionTypeOptions}
+                        onChange={setSelectedInstitutionType}
+                        isDisabled={!selectedState}
+                    />
 
-                    {/* 2. Course Dropdown */}
+                    {/* 3. Institution Name Dropdown */}
+                    <Dropdown
+                        label="Institution Name"
+                        value={selectedInstitution}
+                        options={institutionOptions}
+                        onChange={setSelectedInstitution}
+                        isDisabled={!selectedInstitutionType}
+                    />
+
+                    {/* 4. Course Dropdown */}
                     <Dropdown
                         label="Course"
                         value={selectedCourse}
                         options={courseOptions}
                         onChange={setSelectedCourse}
-                        isDisabled={!selectedCollege}
+                        isDisabled={!selectedInstitution}
                     />
 
-                    {/* 3. Semester Dropdown */}
+                    {/* 5. Semester Dropdown */}
                     <Dropdown
                         label="Semester"
                         value={selectedSemester}
@@ -235,22 +194,13 @@ const BrowseNotesPage = ({ onSearch }) => { // Renamed from BrowseNotesModal
                         isDisabled={!selectedCourse}
                     />
 
-                    {/* 4. Subject Dropdown */}
+                    {/* 6. Subject Dropdown */}
                     <Dropdown
                         label="Subject"
                         value={selectedSubject}
                         options={subjectOptions}
                         onChange={setSelectedSubject}
                         isDisabled={!selectedSemester}
-                    />
-
-                    {/* 5. Chapter Dropdown */}
-                    <Dropdown
-                        label="Chapter/Topic"
-                        value={selectedChapter}
-                        options={chapterOptions}
-                        onChange={setSelectedChapter}
-                        isDisabled={!selectedSubject}
                     />
                 </div>
 
@@ -282,9 +232,8 @@ const BrowseNotesPage = ({ onSearch }) => { // Renamed from BrowseNotesModal
                     </button>
                 </div>
             </div>
-            {/* Note: The results area would go here */}
         </div>
     );
 };
 
-export default BrowseNotesPage; // Final export
+export default BrowseNotesPage;
