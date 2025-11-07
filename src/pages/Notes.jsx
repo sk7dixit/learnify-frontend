@@ -9,7 +9,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 // Import the component you want to use for the filtering interface
-import BrowseNotesPage from './BrowseNotesModal';
+import BrowseNotesPage from './BrowseNotesPage';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { debounce } from 'lodash';
