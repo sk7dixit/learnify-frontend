@@ -6,10 +6,10 @@ import { useAuth } from '../context/AuthContext';
 const Register = () => {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
-  const [age, setAge] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
+  // AGE REMOVED: The state for 'age' is removed.
   const [otp, setOtp] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
@@ -26,7 +26,8 @@ const Register = () => {
     setLoading(true);
 
     try {
-      await api.post('/users/register', { name, age, email, password, mobileNumber, username });
+      // AGE REMOVED: 'age' is removed from the payload sent to the API
+      await api.post('/users/register', { name, email, password, mobileNumber, username });
       setShowOtpInput(true);
 
       // FIX: Updated success message to instruct users to check spam folder
@@ -93,10 +94,12 @@ const Register = () => {
               <label htmlFor="mobileNumber" className="block text-lg font-medium text-gray-300 mb-2">Mobile Number</label>
               <input type="tel" id="mobileNumber" className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white" placeholder="+91 9876543210" value={mobileNumber} onChange={(e) => setMobileNumber(e.target.value)} required />
             </div>
-             <div>
+            {/* AGE REMOVED: The entire age input field div is removed.
+            <div>
               <label htmlFor="age" className="block text-lg font-medium text-gray-300 mb-2">Age</label>
               <input type="number" id="age" className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white" placeholder="18" value={age} onChange={(e) => setAge(e.target.value)} required />
             </div>
+            */}
             <div>
               <label htmlFor="password" className="block text-lg font-medium text-gray-300 mb-2">Password</label>
               <div className="relative">
