@@ -1,10 +1,12 @@
 // src/pages/NoteViewer.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import SecurePdfViewer from '../components/SecurePdfViewer';
+import ReportNote from '../components/ReportNote'; // <-- NEW: Import the reporting component
 import { Rating } from 'react-simple-star-rating';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import { Flag } from 'lucide-react'; // <-- NEW: Import Flag icon
 
 const formatDate = (dateString) => new Date(dateString).toLocaleDateString();
 
@@ -12,12 +14,12 @@ const formatDate = (dateString) => new Date(dateString).toLocaleDateString();
 const RatingSection = ({ noteId }) => {
     // ... (All the code for RatingSection stays the same)
     const { user, refreshUser } = useAuth();
-    const [ratings, setRatings] = React.useState([]);
-    const [userRating, setUserRating] = React.useState(0);
-    const [reviewText, setReviewText] = React.useState('');
-    const [loading, setLoading] = React.useState(true);
+    const [ratings, setRatings] = useState([]);
+    const [userRating, setUserRating] = useState(0);
+    const [reviewText, setReviewText] = useState('');
+    const [loading, setLoading] = useState(true);
 
-    React.useEffect(() => {
+    useEffect(() => {
         const fetchRatings = async () => {
             setLoading(true);
             try {
@@ -94,17 +96,44 @@ function NoteViewer() {
   const { noteId } = useParams();
   const navigate = useNavigate();
 
+  // --- NEW: State for reporting ---
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [noteTitle, setNoteTitle] = useState("Loading Note..."); // State to hold the note's title
+
+  // --- NEW: Fetch Note Title on Load (needed for the report modal) ---
+  useEffect(() => {
+    const fetchTitle = async () => {
+        try {
+            // We use the same getSingleNote route we have already implemented
+            const res = await api.get(`/notes/${noteId}`);
+            setNoteTitle(res.data.title);
+        } catch (err) {
+            console.error("Failed to fetch note title", err);
+            setNoteTitle("Note Details");
+        }
+    };
+    fetchTitle();
+  }, [noteId]);
+
+
   return (
     <div className="w-full">
-      <div className="mb-6">
-        <button onClick={() => navigate(-1)} className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
-          &larr; Back
-        </button>
-      </div>
+        {/* Top Control Bar */}
+        <div className="mb-6 flex justify-between items-center">
+            <button onClick={() => navigate(-1)} className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors">
+              &larr; Back
+            </button>
 
-      {/* --- THIS IS THE FIX --- */}
-      {/* We give the PDF viewer container a fixed height. */}
-      {/* The `SecurePdfViewer` inside it is already configured to handle its own scrolling. */}
+            {/* Report Button (Phase 2 Community Curation) */}
+            <button
+                onClick={() => setIsReportModalOpen(true)}
+                className="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+            >
+                <Flag className="w-5 h-5" /> Report Note
+            </button>
+        </div>
+
+      {/* --- PDF VIEWER CONTAINER --- */}
       <div className="w-full h-[85vh] bg-gray-800 rounded-lg overflow-hidden shadow-2xl mb-8">
         <SecurePdfViewer noteId={noteId} />
       </div>
@@ -113,6 +142,15 @@ function NoteViewer() {
       <div className="w-full">
          <RatingSection noteId={noteId} />
       </div>
+
+      {/* --- NEW: Report Modal --- */}
+      {isReportModalOpen && (
+        <ReportNote
+            noteId={noteId}
+            noteTitle={noteTitle}
+            onClose={() => setIsReportModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

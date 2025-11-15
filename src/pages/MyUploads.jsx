@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+// src/pages/MyUploads.jsx
+import React, { useState, useRef } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { universityData, courseData, subjectData } from '../services/universityData';
+import { Trash2 } from 'lucide-react';
+import { universityData, courseData, subjectData } from '../services/universityData'; // Assuming these are defined
 
-// Reusable input components
+// --- Reusable Input Components (unchanged) ---
 const TextInput = ({ label, name, ...props }) => (
     <div>
         <label className="block text-gray-300 mb-2 font-semibold">{label}</label>
@@ -35,7 +37,8 @@ const SelectInput = ({ label, name, value, onChange, options, ...props }) => (
     </div>
 );
 
-// Personal Note Form
+// --- Form Components (unchanged) ---
+// Personal Note Form - remains the same, fields now apply to all files in the batch
 const PersonalNoteForm = ({ formData, handleChange }) => {
     const legacyContent = {
         fields: ["Engineering", "Medical", "Arts", "Commerce", "Class 12", "Class 11", "Class 10"],
@@ -55,14 +58,7 @@ const PersonalNoteForm = ({ formData, handleChange }) => {
 
     return (
         <div className="space-y-6">
-            <TextInput
-                label="Note Title"
-                name="title"
-                value={formData.title}
-                onChange={handleChange}
-                placeholder="e.g., My Personal C++ Notes"
-                required
-            />
+             {/* NOTE: Title removed here as it is now defined per file */}
             <SelectInput
                 label="Field / Class"
                 name="field"
@@ -95,7 +91,7 @@ const PersonalNoteForm = ({ formData, handleChange }) => {
     );
 };
 
-// University Note Form
+// University Note Form - remains the same, fields now apply to all files in the batch
 const UniversityNoteForm = ({ uniState, handleUniChange }) => {
     const stateOptions = Object.keys(universityData);
     const institutionTypeOptions = uniState.state ? Object.keys(universityData[uniState.state]) : [];
@@ -178,38 +174,37 @@ const UniversityNoteForm = ({ uniState, handleUniChange }) => {
         </div>
     );
 };
+// --- END Form Components ---
+
 
 function MyUploads() {
     const { refreshUser } = useAuth();
+    const fileInputRef = useRef(null);
+
     const [uploadType, setUploadType] = useState("personal_material");
-    const [file, setFile] = useState(null);
+    
+    // PHASE 2 FIX: State now holds an array of file objects { file: File, title: string, id: number }
+    const [fileList, setFileList] = useState([]); 
+    
     const [message, setMessage] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
 
+    // Metadata state (applies to ALL files in the list)
     const [formData, setFormData] = useState({ title: "", field: "", course: "", subject: "" });
     const [uniState, setUniState] = useState({
-        state: "",
-        institutionType: "",
-        institution: "",
-        otherInstitution: "",
-        course: "",
-        semester: "",
-        subject: "",
-        otherSubject: ""
+        state: "", institutionType: "", institution: "", otherInstitution: "",
+        course: "", semester: "", subject: "", otherSubject: ""
     });
 
+
+    // --- Handlers ---
     const handlePersonalChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => {
             const updated = { ...prev, [name]: value };
-            if (name === "field") {
-                updated.course = "";
-                updated.subject = "";
-            }
-            if (name === "course") {
-                updated.subject = "";
-            }
+            if (name === "field") { updated.course = ""; updated.subject = ""; }
+            if (name === "course") { updated.subject = ""; }
             return updated;
         });
     };
@@ -218,44 +213,69 @@ function MyUploads() {
         const { name, value } = e.target;
         setUniState((prev) => {
             const newState = { ...prev, [name]: value };
-            if (name === "state") {
-                newState.institutionType = "";
-                newState.institution = "";
-                newState.otherInstitution = "";
-            }
-            if (name === "institutionType") {
-                newState.institution = "";
-                newState.otherInstitution = "";
-            }
-            if (name === "course") {
-                newState.semester = "";
-                newState.subject = "";
-                newState.otherSubject = "";
-            }
-            if (name === "semester") {
-                newState.subject = "";
-                newState.otherSubject = "";
-            }
+            if (name === "state") { newState.institutionType = ""; newState.institution = ""; newState.otherInstitution = ""; }
+            if (name === "institutionType") { newState.institution = ""; newState.otherInstitution = ""; }
+            if (name === "course") { newState.semester = ""; newState.subject = ""; newState.otherSubject = ""; }
+            if (name === "semester") { newState.subject = ""; newState.otherSubject = ""; }
             return newState;
         });
     };
+    
+    // PHASE 2 FIX: Handler for adding multiple files from input
+    const handleFileChange = (e) => {
+        const newFiles = Array.from(e.target.files)
+            .filter(f => f.type === 'application/pdf') // Basic validation
+            .map((file, index) => ({
+                id: Date.now() + index, // Unique ID for key/tracking
+                file: file,
+                title: file.name.replace(/\.[^/.]+$/, '') // Default title is filename
+            }));
+        
+        setFileList(prevList => [...prevList, ...newFiles]);
+        // Clear file input value to allow selecting the same file(s) again
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    // PHASE 2 FIX: Handler for updating the title of a specific file
+    const handleTitleChange = (id, newTitle) => {
+        setFileList(prevList => prevList.map(item => 
+            item.id === id ? { ...item, title: newTitle } : item
+        ));
+    };
+
+    // PHASE 2 FIX: Handler for removing a file from the list
+    const handleRemoveFile = (id) => {
+        setFileList(prevList => prevList.filter(item => item.id !== id));
+    };
+    
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!file) {
-            setError("Please select a PDF file to upload.");
+        if (fileList.length === 0) {
+            setError("Please select at least one PDF file to upload.");
             return;
         }
+        // Ensure all files have a non-empty title
+        if (fileList.some(item => item.title.trim() === '')) {
+             setError("All uploaded files must have a title.");
+            return;
+        }
+
         setLoading(true);
         setMessage("");
         setError("");
 
         const data = new FormData();
-        data.append("file", file);
         data.append("material_type", uploadType);
-
+        
+        // PHASE 2 FIX: Append ALL files and ALL titles
+        fileList.forEach(item => {
+            data.append("files[]", item.file); // Backend expects files[]
+            data.append("titles[]", item.title); // Backend expects titles[]
+        });
+        
+        // Append all metadata (applies to the whole batch)
         if (uploadType === "university_material") {
-            data.append("title", formData.title);
             data.append(
                 "university_name",
                 uniState.institution === "Other" ? uniState.otherInstitution : uniState.institution
@@ -265,52 +285,55 @@ function MyUploads() {
                 "subject",
                 uniState.subject === "Other"
                     ? uniState.otherSubject
-                    : uniState.subject + ` (Sem ${uniState.semester})`
+                    : uniState.subject + (uniState.semester ? ` (Sem ${uniState.semester})` : '')
             );
+            data.append("semester", uniState.semester || '');
         } else {
-            data.append("title", formData.title);
+            // Personal Material fields
             data.append("field", formData.field);
             data.append("course", formData.course);
             data.append("subject", formData.subject);
         }
 
         try {
-            const response = await api.post("/notes/user-upload", data, {
+            // PHASE 2 FIX: Use the new multi-upload endpoint
+            const response = await api.post("/notes/multi-upload", data, { 
                 headers: { "Content-Type": "multipart/form-data" }
             });
+            
             setMessage(response.data.message);
             await refreshUser();
+            
+            // Clear form state
+            setFileList([]);
             setFormData({ title: "", field: "", course: "", subject: "" });
             setUniState({
-                state: "",
-                institutionType: "",
-                institution: "",
-                otherInstitution: "",
-                course: "",
-                semester: "",
-                subject: "",
-                otherSubject: ""
+                state: "", institutionType: "", institution: "", otherInstitution: "",
+                course: "", semester: "", subject: "", otherSubject: ""
             });
-            setFile(null);
-            e.target.reset();
+            
         } catch (err) {
-            setError(err.response?.data?.error || "Upload failed. Please try again.");
+            // Handle specific multi-upload errors (like file limits or individual file errors)
+            const errorMsg = err.response?.data?.error || "Upload failed. Check console for details.";
+            setError(errorMsg);
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="max-w-2xl mx-auto p-8 bg-gray-800 rounded-xl">
-            <h1 className="text-4xl font-bold text-cyan-400 mb-4">Upload Your Note</h1>
+        <div className="max-w-3xl mx-auto p-8 bg-gray-800 rounded-xl">
+            <h1 className="text-4xl font-bold text-cyan-400 mb-4">Upload Your Note(s)</h1>
             <p className="text-gray-400 mb-8">
-                Contribute to the community! Your note will be watermarked and sent for admin approval.
+                You can upload multiple files at once. All files in the batch must share the same subject/course information below.
             </p>
 
             {message && <p className="text-green-400 text-center mb-4">{message}</p>}
             {error && <p className="text-red-500 text-center mb-4">{error}</p>}
 
             <form onSubmit={handleSubmit} className="space-y-6">
+                
+                {/* 1. UPLOAD TYPE SELECTION */}
                 <div>
                     <label className="block text-gray-300 mb-2 font-semibold">Type of Material</label>
                     <select
@@ -318,44 +341,68 @@ function MyUploads() {
                         onChange={(e) => setUploadType(e.target.value)}
                         className="w-full px-4 py-2 rounded-lg bg-gray-700"
                     >
-                        <option value="personal_material">Personal Note</option>
+                        <option value="personal_material">Personal Note (General/School)</option>
                         <option value="university_material">University/College Material</option>
                     </select>
                 </div>
 
+                {/* 2. METADATA FORM (Applies to all files) */}
                 {uploadType === "personal_material" ? (
                     <PersonalNoteForm formData={formData} handleChange={handlePersonalChange} />
                 ) : (
-                    <>
-                        <TextInput
-                            label="Note Title"
-                            name="title"
-                            value={formData.title}
-                            onChange={handlePersonalChange}
-                            placeholder="e.g., Data Structures - Unit 1 Notes"
-                            required
-                        />
-                        <UniversityNoteForm uniState={uniState} handleUniChange={handleUniChange} />
-                    </>
+                    <UniversityNoteForm uniState={uniState} handleUniChange={handleUniChange} />
                 )}
-
-                <div>
-                    <label className="block text-gray-300 mb-2 font-semibold">PDF File</label>
+                
+                {/* 3. FILE SELECTOR & LIST (PHASE 2 FIX: Multi-file UI) */}
+                <div className="pt-4 border-t border-gray-700">
+                    <label className="block text-gray-300 mb-2 font-semibold">Select PDF File(s)</label>
                     <input
+                        ref={fileInputRef}
                         type="file"
                         accept="application/pdf"
-                        onChange={(e) => setFile(e.target.files[0])}
-                        required
+                        multiple // Allows multiple selection
+                        onChange={handleFileChange}
                         className="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100"
                     />
+                     <p className="text-xs text-gray-500 mt-2">PDF only, Max 10 files per batch, 20MB per file.</p>
                 </div>
 
+                {/* 4. DYNAMIC FILE LIST & TITLE INPUT */}
+                {fileList.length > 0 && (
+                    <div className="space-y-3 p-4 bg-gray-700 rounded-lg">
+                        <h3 className="text-lg font-bold text-white">Files to Upload ({fileList.length})</h3>
+                        {fileList.map(item => (
+                            <div key={item.id} className="flex items-center space-x-3">
+                                {/* Title Input */}
+                                <input
+                                    type="text"
+                                    value={item.title}
+                                    onChange={(e) => handleTitleChange(item.id, e.target.value)}
+                                    placeholder={item.file.name.replace(/\.[^/.]+$/, '')}
+                                    required
+                                    className="flex-1 px-3 py-2 rounded bg-gray-800 text-white placeholder-gray-500 focus:ring-2 focus:ring-cyan-500"
+                                />
+                                {/* Remove Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemoveFile(item.id)}
+                                    className="text-red-500 hover:text-red-400 p-2 rounded"
+                                    title={`Remove ${item.file.name}`}
+                                >
+                                    <Trash2 className="w-5 h-5" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                
+                {/* 5. SUBMIT BUTTON */}
                 <button
                     type="submit"
-                    disabled={loading}
+                    disabled={loading || fileList.length === 0}
                     className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 mt-4"
                 >
-                    {loading ? "Uploading..." : "Upload Note"}
+                    {loading ? "Uploading Batch..." : `Upload ${fileList.length} Note(s)`}
                 </button>
             </form>
         </div>

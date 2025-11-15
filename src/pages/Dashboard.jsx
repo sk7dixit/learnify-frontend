@@ -51,11 +51,33 @@ const Dashboard = () => {
                 </div>
             </header>
 
-            {/* 2. SIDEBAR NAVIGATION (REMOVED - relies on parent component) */}
-            {/* The slide-in menu div is completely removed from here. */}
-
-            {/* 3. MAIN DASHBOARD CONTENT */}
+            {/* 2. MAIN DASHBOARD CONTENT */}
             <main className="p-4 md:p-8">
+
+                {/* Ready for more? Section (Buttons) - PHASE 3 FIX: MOVED HIGHER */}
+                <div className="mb-8 p-6 bg-[#1f283a] rounded-xl shadow-lg border border-gray-700">
+                    <h3 className="text-2xl font-bold text-cyan-400 mb-3">Ready for more?</h3>
+                    <p className="text-gray-300 mb-6">
+                        Contribute to the community or find the perfect notes for your next exam.
+                    </p>
+                    <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                        {/* Upload Button */}
+                        <button
+                            onClick={handleRedirectToUpload}
+                            className="flex-1 bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition shadow-md flex items-center justify-center space-x-2">
+                            <Upload className="w-5 h-5" />
+                            <span>Upload a Note</span>
+                        </button>
+                        {/* Browse Button - NOW REDIRECTS */}
+                        <button
+                            onClick={handleRedirectToBrowse}
+                            className="flex-1 bg-cyan-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-cyan-700 transition shadow-md flex items-center justify-center space-x-2"
+                        >
+                            <Search className="w-5 h-5" />
+                            <span>Browse Notes</span>
+                        </button>
+                    </div>
+                </div>
 
                 {/* 4-Stat Grid (Responsive layout) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
@@ -88,34 +110,7 @@ const Dashboard = () => {
                         <span className="text-gray-300 mt-2">View All</span>
                     </button>
                 </div>
-
-                {/* Ready for more? Section (Buttons) */}
-                <div className="mt-12 p-6 bg-[#1f283a] rounded-xl shadow-lg border border-gray-700">
-                    <h3 className="text-2xl font-bold text-cyan-400 mb-3">Ready for more?</h3>
-                    <p className="text-gray-300 mb-6">
-                        Contribute to the community or find the perfect notes for your next exam.
-                    </p>
-                    <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-                        {/* Upload Button */}
-                        <button
-                            onClick={handleRedirectToUpload}
-                            className="flex-1 bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition shadow-md flex items-center justify-center space-x-2">
-                            <Upload className="w-5 h-5" />
-                            <span>Upload a Note</span>
-                        </button>
-                        {/* Browse Button - NOW REDIRECTS */}
-                        <button
-                            onClick={handleRedirectToBrowse}
-                            className="flex-1 bg-cyan-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-cyan-700 transition shadow-md flex items-center justify-center space-x-2"
-                        >
-                            <Search className="w-5 h-5" />
-                            <span>Browse Notes</span>
-                        </button>
-                    </div>
-                </div>
-
             </main>
-
         </div>
     );
 };

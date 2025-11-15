@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../services/api';
+import api, { setAccessToken } from '../services/api';
 
 function Login() {
   const [identifier, setIdentifier] = useState('');
@@ -12,27 +12,43 @@ function Login() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loginMethod, setLoginMethod] = useState('password');
+  const [loginMethod, setLoginMethod] = useState('password'); // 'password' | 'otp'
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [twoFactorRequired, setTwoFactorRequired] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login: authLogin } = useAuth();
 
-  // A single function to handle the logic after a successful API call
+  // Called when a successful login response arrives
   const handleSuccessfulLogin = (response) => {
-    const { token, user } = response.data;
-    login(token, user);
-    setMessage('Login successful! Redirecting...');
-    // Ensure loading is set to false BEFORE redirecting on success
+    // Response shape: { data: { token, user } } (server may vary)
+    const token = response?.data?.token || response?.data?.accessToken || null;
+    const user = response?.data?.user || response?.data?.profile || null;
+
+    if (token) {
+      // Let AuthContext handle storing token/user or store here if needed
+      try {
+        authLogin(token, user); // your AuthContext's login function
+      } catch (e) {
+        // Fallback: store token in api helper if AuthContext doesn't
+        try { setAccessToken(token); } catch (_) {}
+      }
+      setMessage('Login successful — redirecting...');
+      setError('');
+      setLoading(false);
+      const target = (user && user.role === 'admin') ? '/admin-dashboard' : '/dashboard';
+      setTimeout(() => navigate(target, { replace: true }), 900);
+      return;
+    }
+
+    // If no token but server returned something else (rare), show a message
+    setMessage(response?.data?.message || 'Logged in (no token provided).');
     setLoading(false);
-    // Redirect admin to admin dashboard, users to user dashboard
-    const target = user.role === 'admin' ? '/admin-dashboard' : '/dashboard';
-    setTimeout(() => navigate(target, { replace: true }), 1000);
   };
 
-  // Resets state when switching between login methods
   const switchMethod = (method) => {
     setLoginMethod(method);
     setError('');
@@ -44,7 +60,6 @@ function Login() {
     setTwoFactorCode('');
   };
 
-  // Dynamically determines the text for the main submit button
   const getButtonText = () => {
     if (loading) {
       if (loginMethod === 'password') return twoFactorRequired ? 'Verifying 2FA...' : 'Logging in...';
@@ -54,7 +69,22 @@ function Login() {
     return isOtpSent ? 'Login with OTP' : 'Send OTP';
   };
 
-  // A single submit handler for the form
+  // resend verification link (phase 6)
+  const handleResendVerification = async () => {
+    if (!identifier) return setError('Enter your email or username to resend verification.');
+    setResendLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const resp = await api.post('/users/resend-verification', { identifier });
+      setMessage(resp?.data?.message || 'Verification link resent. Check your inbox.');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to resend verification link.');
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -63,148 +93,196 @@ function Login() {
 
     try {
       if (loginMethod === 'password') {
-        // Handle password or 2FA login
-        const payload = { identifier, password, twoFactorCode };
-        const response = await api.post('/users/login', payload);
+        // Login with password (may require 2FA)
+        const payload = {
+          identifier: identifier.trim(),
+          password,
+          twoFactorCode: twoFactorRequired ? twoFactorCode.trim() : undefined,
+          rememberMe, // informs backend to issue longer refresh token / cookie
+        };
 
+        const response = await api.post('/users/login', payload);
+        // Server may respond with { twoFactorRequired: true } and 200/403
+        if (response.data && response.data.twoFactorRequired) {
+          setTwoFactorRequired(true);
+          setError(response.data.error || 'Two-factor authentication required. Enter code.');
+          setLoading(false);
+          return;
+        }
+
+        // Otherwise, treat as successful
         handleSuccessfulLogin(response);
 
       } else {
-        // Handle the two-step OTP login
+        // OTP flow: two-step
         if (!isOtpSent) {
-          // Step 1: Request the OTP
-          const response = await api.post('/users/login-otp-request', { identifier });
-          setMessage(response.data.message);
+          // Request OTP to be sent to the user's mobile/email depending on server impl
+          const resp = await api.post('/users/login-otp-request', { identifier: identifier.trim() });
+          setMessage(resp.data?.message || 'OTP sent. Please check your device.');
           setIsOtpSent(true);
-          // Turn loading off after sending OTP but before step 2
           setLoading(false);
         } else {
-          // Step 2: Verify the OTP
-          const response = await api.post('/users/login-otp-verify', { identifier, otp });
-          handleSuccessfulLogin(response);
+          // Verify OTP
+          const resp = await api.post('/users/login-otp-verify', { identifier: identifier.trim(), otp: otp.trim(), rememberMe });
+          // OTP verify should return token + user
+          handleSuccessfulLogin(resp);
         }
       }
     } catch (err) {
-      const serverError = err.response?.data;
-      if (serverError?.twoFactorRequired) {
-        // New server response for 2FA requirement
+      // Server could respond with various payloads:
+      // - { error: '...', twoFactorRequired: true }
+      // - { error: 'Email not verified' }
+      const srv = err.response?.data;
+      if (srv?.twoFactorRequired) {
+        // Server is telling us 2FA must be completed
         setTwoFactorRequired(true);
-        setError(serverError.error);
-        // Turn loading OFF if 2FA is required, to allow user to input the code and submit again
-        setLoading(false);
+        setError(srv.error || 'Two-factor required. Enter code.');
+      } else if (/verify/i.test(srv?.error || '')) {
+        // Likely not verified email
+        setError(srv?.error || 'Email not verified. You may resend verification.');
+        setMessage('');
       } else {
-        setError(serverError?.error || 'An unexpected error occurred.');
-        // Turn loading OFF on all other failures
-        setLoading(false);
+        setError(srv?.error || 'Login failed. Check credentials and try again.');
       }
+      setLoading(false);
     }
-    // Removed redundant finally block condition
   };
-
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-4">
-      <div className="bg-gray-800 bg-opacity-70 backdrop-filter backdrop-blur-lg border border-gray-700 rounded-xl shadow-2xl p-8 max-w-md w-full">
-        <h2 className="text-4xl font-extrabold text-cyan-400 mb-6 text-center tracking-wide">
-          Welcome Back!
-        </h2>
+      <div className="bg-gray-800 bg-opacity-75 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full">
+        <h2 className="text-3xl sm:text-4xl font-extrabold text-cyan-400 mb-6 text-center tracking-tight">Welcome Back</h2>
 
-        {/* --- Login Method Toggle --- */}
-        <div className="flex justify-center border border-gray-600 rounded-lg p-1 mb-6">
-          <button onClick={() => switchMethod('password')} className={`w-1/2 py-2 rounded-md transition-colors text-sm font-semibold ${loginMethod === 'password' ? 'bg-cyan-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}>
+        <div className="flex justify-center border border-gray-600 rounded-lg p-1 mb-5">
+          <button
+            onClick={() => switchMethod('password')}
+            className={`w-1/2 py-2 rounded-md text-sm font-semibold ${loginMethod === 'password' ? 'bg-cyan-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+          >
             Use Password
           </button>
-          <button onClick={() => switchMethod('otp')} className={`w-1/2 py-2 rounded-md transition-colors text-sm font-semibold ${loginMethod === 'otp' ? 'bg-cyan-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}>
+          <button
+            onClick={() => switchMethod('otp')}
+            className={`w-1/2 py-2 rounded-md text-sm font-semibold ${loginMethod === 'otp' ? 'bg-cyan-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+          >
             Use OTP
           </button>
         </div>
 
-        {/* --- Single Form for Both Methods --- */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label htmlFor="identifier" className="block text-lg font-medium text-gray-300 mb-2">Email or Username</label>
+            <label htmlFor="identifier" className="block text-sm font-medium text-gray-300 mb-2">Email or Username</label>
             <input
-              type="text"
               id="identifier"
-              className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition duration-200"
-              placeholder="your@example.com or your_username"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               required
-              disabled={isOtpSent || twoFactorRequired} // Disable if OTP sent or 2FA required
+              disabled={isOtpSent || twoFactorRequired || loading}
+              className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              placeholder="your@example.com or username"
             />
           </div>
 
-          {/* Conditionally render Password field */}
           {loginMethod === 'password' && !twoFactorRequired && (
             <div>
-              <label htmlFor="password" className="block text-lg font-medium text-gray-300 mb-2">Password</label>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">Password</label>
               <div className="relative">
                 <input
-                  type={showPassword ? 'text' : 'password'}
                   id="password"
-                  className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition duration-200 pr-10"
-                  placeholder="••••••••"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  disabled={loading}
+                  className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 pr-10"
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white" aria-label={showPassword ? 'Hide password' : 'Show password'}>
-                  {showPassword ? <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.879 16.121A4.995 4.995 0 0112 15c1.455 0 2.845.385 4.012 1.012m-5.858-4.904A2 2 0 1112 10a2 2 0 01-2 2z" /></svg> : <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>}
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(s => !s)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white"
+                  aria-label={showPassword ? 'Hide' : 'Show'}
+                >
+                  {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
-              <Link to="/forgot-password" className="block text-right text-sm text-gray-400 hover:text-cyan-400 transition duration-200 mt-2">Forgot Password?</Link>
+              <div className="flex justify-between items-center mt-2">
+                <Link to="/forgot-password" className="text-sm text-gray-400 hover:text-cyan-400">Forgot Password?</Link>
+                <label className="flex items-center gap-2 text-sm text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="form-checkbox h-4 w-4 text-cyan-500"
+                    disabled={loading}
+                  />
+                  Remember me (10 days)
+                </label>
+              </div>
             </div>
           )}
 
-          {/* --- NEW: 2FA Code Input --- */}
           {twoFactorRequired && (
             <div>
-              <label htmlFor="twoFactorCode" className="block text-lg font-medium text-gray-300 mb-2">2FA Code</label>
+              <label htmlFor="twoFactorCode" className="block text-sm font-medium text-gray-300 mb-2">2FA Code</label>
               <input
-                type="text"
                 id="twoFactorCode"
-                className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition duration-200"
-                placeholder="Enter 6-digit code from authenticator app"
                 value={twoFactorCode}
                 onChange={(e) => setTwoFactorCode(e.target.value)}
                 required
+                disabled={loading}
+                placeholder="123456"
+                className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
               />
+              <p className="text-xs text-gray-400 mt-2">Enter the code from your authenticator app. If you don't have one, use the 'Disable 2FA' flow in account settings after logging in.</p>
             </div>
           )}
 
-          {/* Conditionally render OTP field for OTP login */}
           {loginMethod === 'otp' && isOtpSent && (
             <div>
-              <label htmlFor="otp" className="block text-lg font-medium text-gray-300 mb-2">Enter OTP</label>
+              <label htmlFor="otp" className="block text-sm font-medium text-gray-300 mb-2">OTP</label>
               <input
-                type="text"
                 id="otp"
-                className="w-full px-4 py-3 bg-gray-700 bg-opacity-50 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition duration-200"
-                placeholder="123456"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 required
+                disabled={loading}
+                placeholder="6-digit code"
+                className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
               />
             </div>
           )}
 
-          {/* --- Single Submit Button --- */}
-          <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:from-cyan-700 hover:to-blue-700 transition duration-300 ease-in-out transform hover:-translate-y-1 shadow-lg disabled:opacity-50">
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-lg font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-700 hover:to-blue-700 transition transform hover:-translate-y-0.5 disabled:opacity-50"
+          >
             {getButtonText()}
           </button>
         </form>
 
-        {/* --- Feedback Messages --- */}
-        {error && <p className="text-red-400 text-center text-sm mt-4">{error}</p>}
-        {message && <p className="text-green-400 text-center text-sm mt-4">{message}</p>}
+        {/* Messages */}
+        {error && (
+          <div className="mt-4 text-center">
+            <p className="text-red-400">{error}</p>
 
-        {/* --- Link to Register Page --- */}
-        <p className="mt-8 text-center text-gray-400 text-sm">
+            {/* If server indicates verification needed, offer resend */}
+            <div className="mt-2 flex items-center justify-center gap-2">
+              <button
+                onClick={handleResendVerification}
+                disabled={resendLoading}
+                className="text-sm text-cyan-300 hover:text-cyan-200"
+              >
+                {resendLoading ? 'Resending...' : 'Resend verification'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {message && <p className="mt-4 text-center text-green-400">{message}</p>}
+
+        <p className="mt-6 text-center text-sm text-gray-400">
           Don't have an account?{' '}
-          <Link to="/register" className="text-cyan-400 hover:text-cyan-300 font-semibold transition duration-200">
-            Register here
-          </Link>
+          <Link to="/register" className="text-cyan-400 hover:text-cyan-300 font-semibold">Register</Link>
         </p>
       </div>
     </div>

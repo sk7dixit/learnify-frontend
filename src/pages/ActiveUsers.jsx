@@ -1,71 +1,112 @@
-import React, { useState } from 'react';
-import { Trash2, Shield, AlertTriangle } from 'lucide-react';
-// In a real app, you would import your API service here:
-// import api from '../services/api';
+// src/pages/ActiveUsers.jsx
+import React, { useState, useEffect, useMemo } from 'react';
+import { Trash2, Shield, AlertTriangle, Search, Calendar, Filter } from 'lucide-react';
+// Import your API service
+import api from '../services/api';
 
-// --- MOCK USER DATA (Replace with data fetched from your API) ---
-const INITIAL_USERS = [
-    { id: 'u1', username: 'Shashwat Dixit', email: 'shashwatdixit22@gmail.com', registered: 'Nov 4, 2025, 11:30 AM', lastLogin: 'Nov 7, 2025, 05:39 PM' },
-    { id: 'u2', username: 'Amar', email: 'forget4evemorev@gmail.com', registered: 'Nov 5, 2025, 09:15 PM', lastLogin: 'Nov 5, 2025, 09:16 PM' },
-    { id: 'u3', username: 'Aarsh Tripathi', email: 'aarshtripathi21@gmail.com', registered: 'Nov 5, 2025, 09:04 PM', lastLogin: 'Nov 5, 2025, 09:00 PM' },
-    { id: 'u4', username: 'Utsav', email: 'utsavpoochou43@gmail.com', registered: 'Nov 5, 2025, 08:56 PM', lastLogin: 'Nov 5, 2025, 08:57 PM' },
-    { id: 'u5', username: 'Ujjwal Upadhyay', email: 'ujju.up@gmail.com', registered: 'Nov 5, 2025, 08:49 PM', lastLogin: 'Nov 5, 2025, 08:47 PM' },
-    { id: 'u6', username: 'sakshi', email: 'sakshisooni27022005@gmail.com', registered: 'Nov 5, 2025, 09:00 PM', lastLogin: 'Never' },
-    { id: 'u7', username: 'Khushboo Saini', email: 'khushboosaini066@gmail.com', registered: 'Nov 5, 2025, 09:09 PM', lastLogin: 'Never' },
-    { id: 'u8', username: 'Anjan', email: 'fltkar@gmail.com', registered: 'Nov 5, 2025, 07:00 PM', lastLogin: 'Never' },
-];
-// --- END MOCK DATA ---
+// --- Helper: Convert date string to Date object for comparison ---
+const parseDate = (dateString) => {
+    if (dateString === 'Never' || !dateString) return null;
+    // Attempt to parse the localized string, fallback to new Date()
+    return new Date(dateString);
+};
 
 const ActiveUsers = () => {
-    const [users, setUsers] = useState(INITIAL_USERS);
-    const [confirmation, setConfirmation] = useState(null); // { userId, username }
+    const [allUsers, setAllUsers] = useState([]); // Master list fetched from API
+    const [loading, setLoading] = useState(true);
+    const [confirmation, setConfirmation] = useState(null);
     const [error, setError] = useState('');
     const [successMessage, setSuccessMessage] = useState('');
 
-    // 1. HANDLER TO REMOVE USER
+    // --- PHASE 4 FIX: Filter State ---
+    const [searchQuery, setSearchQuery] = useState('');
+    const [startDate, setStartDate] = useState(''); // Registered after
+    const [endDate, setEndDate] = useState('');   // Registered before
+
+    // 1. Fetch Users from API
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                setLoading(true);
+                // Endpoint: GET /api/admin/active-users
+                const response = await api.get('/admin/active-users');
+                // Assume response.data is an array of user objects:
+                // { id, name, email, created_at, last_login }
+                setAllUsers(response.data.map(user => ({
+                    ...user,
+                    // Format dates for display (assuming created_at/last_login are ISO strings)
+                    registered: user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A',
+                    lastLogin: user.last_login ? new Date(user.last_login).toLocaleString() : 'Never',
+                })) || []);
+            } catch (err) {
+                setError('❌ Failed to load active users from the server.');
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchUsers();
+    }, []);
+
+    // 2. PHASE 4 FIX: Filtering Logic (Memoized)
+    const filteredUsers = useMemo(() => {
+        let filtered = allUsers;
+
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(user =>
+                user.name.toLowerCase().includes(query) ||
+                user.username.toLowerCase().includes(query) ||
+                user.email.toLowerCase().includes(query)
+            );
+        }
+
+        const start = parseDate(startDate);
+        const end = parseDate(endDate);
+
+        // Filter by Date Registered
+        if (start || end) {
+             filtered = filtered.filter(user => {
+                const userRegDate = parseDate(user.registered);
+                if (!userRegDate) return false;
+
+                const passesStart = start ? userRegDate >= start : true;
+                const passesEnd = end ? userRegDate <= end : true;
+
+                return passesStart && passesEnd;
+            });
+        }
+
+        // FUTURE: Add filter by status/role if necessary
+
+        return filtered;
+    }, [allUsers, searchQuery, startDate, endDate]);
+
+
+    // 3. HANDLER TO REMOVE USER
     const handleRemoveUser = async (userId) => {
         setError('');
         setSuccessMessage('');
 
-        // ⚠️ In a real application, you would make an API call here:
-        /*
         try {
-            // Assuming your backend has an admin endpoint like /api/admin/users/delete/:id
-            await api.delete(`/admin/users/delete/${userId}`);
+            // Endpoint: DELETE /api/admin/users/:id
+            await api.delete(`/admin/users/${userId}`);
 
             // Remove the user from the local state upon successful deletion
-            setUsers(users.filter(user => user.id !== userId));
+            setAllUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
             setSuccessMessage(`✅ User ID ${userId} removed successfully.`);
 
         } catch (err) {
-            setError('❌ Failed to remove user. Please check server logs.');
+            setError(err.response?.data?.error || '❌ Failed to remove user.');
         } finally {
             setConfirmation(null); // Close modal
         }
-        */
-
-        // --- MOCK DELETION (For demonstration) ---
-        console.log(`MOCK: Attempting to delete user ID: ${userId}`);
-        const userToRemove = users.find(u => u.id === userId);
-
-        if (userToRemove) {
-            // Simulating a successful API call
-            setTimeout(() => {
-                setUsers(users.filter(user => user.id !== userId));
-                setSuccessMessage(`✅ User '${userToRemove.username}' removed successfully.`);
-                setConfirmation(null);
-            }, 500);
-        } else {
-            setError('❌ Mock Error: User not found.');
-            setConfirmation(null);
-        }
-        // --- END MOCK DELETION ---
     };
 
-    // --- MODAL / CONFIRMATION UI ---
+    // --- MODAL / CONFIRMATION UI (Unchanged) ---
     const ConfirmationModal = () => {
         if (!confirmation) return null;
 
+        // ... (Modal JSX remains the same as provided) ...
         return (
             <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
                 <div className="bg-gray-800 p-6 rounded-xl shadow-2xl max-w-sm w-full border border-red-700">
@@ -97,7 +138,7 @@ const ActiveUsers = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#070e17] p-8">
+        <div className="min-h-screen bg-[#070e17] p-4 sm:p-8">
             <h1 className="text-4xl font-bold text-white mb-8 flex items-center">
                 <Shield className="w-8 h-8 mr-3 text-cyan-400" />
                 Active Users (Admin Panel)
@@ -106,57 +147,107 @@ const ActiveUsers = () => {
             {error && <div className="p-3 mb-4 bg-red-800 text-white rounded-lg">{error}</div>}
             {successMessage && <div className="p-3 mb-4 bg-green-800 text-white rounded-lg">{successMessage}</div>}
 
+            {/* PHASE 4 FIX: Search and Filter Bar */}
+            <div className="bg-gray-800 p-4 rounded-xl shadow-inner mb-6">
+                <h2 className="text-xl font-semibold text-white mb-3 flex items-center gap-2">
+                    <Filter className="w-5 h-5" /> Filter & Search
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {/* Search Input */}
+                    <div className="col-span-1 md:col-span-2 relative">
+                        <input
+                            type="text"
+                            placeholder="Search by name, username, or email..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 rounded-lg bg-gray-700 border border-gray-600 focus:ring-cyan-500 focus:border-cyan-500"
+                        />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+
+                    {/* Date Registered Start */}
+                    <div>
+                        <label className="text-xs block text-gray-400 mb-1">Registered After</label>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg bg-gray-700 border border-gray-600 focus:ring-cyan-500"
+                        />
+                    </div>
+
+                    {/* Date Registered End */}
+                    <div>
+                        <label className="text-xs block text-gray-400 mb-1">Registered Before</label>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="w-full px-3 py-2 rounded-lg bg-gray-700 border border-gray-600 focus:ring-cyan-500"
+                        />
+                    </div>
+                </div>
+                <p className="mt-3 text-sm text-gray-400">
+                    Showing **{filteredUsers.length}** users out of **{allUsers.length}** total.
+                </p>
+            </div>
+
+
             {/* Responsive Table Container */}
             <div className="overflow-x-auto bg-[#121a28] rounded-xl shadow-2xl">
-                <table className="min-w-full divide-y divide-gray-700">
-                    <thead className="bg-[#1f283a] sticky top-0">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                                User Name
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                                Email
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                                Date Registered
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                                Last Login
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-700">
-                        {users.map((user) => (
-                            <tr key={user.id} className="hover:bg-gray-700 transition duration-150">
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
-                                    {user.username}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                                    {user.email}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                                    {user.registered}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-cyan-400">
-                                    {user.lastLogin}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                    <button
-                                        onClick={() => setConfirmation({ userId: user.id, username: user.username })}
-                                        className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </td>
+                {loading ? (
+                     <div className="p-6 text-center text-gray-400">Loading user data...</div>
+                ) : (
+                    <table className="min-w-full divide-y divide-gray-700">
+                        <thead className="bg-[#1f283a] sticky top-0">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                    User Name
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                    Email
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                                    Date Registered
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                                    Last Login
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                                    Actions
+                                </th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-                {users.length === 0 && (
-                    <div className="p-6 text-center text-gray-400">No active users found.</div>
+                        </thead>
+                        <tbody className="divide-y divide-gray-700">
+                            {filteredUsers.map((user) => (
+                                <tr key={user.id} className="hover:bg-gray-700 transition duration-150">
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+                                        {user.name}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                                        {user.email}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                                        {user.registered}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-cyan-400">
+                                        {user.lastLogin}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button
+                                            onClick={() => setConfirmation({ userId: user.id, username: user.name })}
+                                            className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                )}
+                {filteredUsers.length === 0 && !loading && (
+                    <div className="p-6 text-center text-gray-400">No users match your filter criteria.</div>
                 )}
             </div>
 

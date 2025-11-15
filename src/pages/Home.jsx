@@ -1,6 +1,7 @@
 // src/pages/Home.jsx
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import { LogIn, UserPlus } from 'lucide-react'; // Icons for header
 
 const HowToUseModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
@@ -46,8 +47,37 @@ const Home = () => {
     <>
       <HowToUseModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
+      {/* PHASE 3 FIX: Persistent Top Header (Sticky) */}
+      <header className="sticky top-0 z-40 w-full bg-gray-900/95 backdrop-blur-sm border-b border-gray-700 shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
+
+          {/* Logo and Title */}
+          <div className="flex items-center space-x-2">
+            <img src="/logo.png" alt="OriNotes Logo" className="h-8 w-8"/>
+            <span className="text-2xl font-extrabold text-cyan-400 tracking-wider">OriNotes</span>
+          </div>
+
+          {/* Navigation/Auth Buttons */}
+          <nav className="flex items-center space-x-3">
+            <Link to="/login">
+              <button className="flex items-center space-x-1 px-4 py-2 text-white font-semibold rounded-full border border-cyan-500 hover:bg-cyan-500/20 transition-colors">
+                <LogIn className="w-4 h-4" />
+                <span>Login</span>
+              </button>
+            </Link>
+            <Link to="/register">
+              <button className="flex items-center space-x-1 px-4 py-2 bg-cyan-600 text-white font-bold rounded-full hover:bg-cyan-700 transition-colors">
+                <UserPlus className="w-4 h-4" />
+                <span>Register</span>
+              </button>
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+
       <div
-        className="relative min-h-screen flex flex-col items-center justify-center text-white overflow-hidden"
+        className="relative min-h-[calc(100vh-65px)] flex flex-col items-center justify-center text-white overflow-hidden" // Adjusted min-height
         style={{
           background: `linear-gradient(${gradientPosition}deg, #0f172a, #003366, #0f172a)`,
           transition: "background 2s ease",
@@ -72,7 +102,7 @@ const Home = () => {
         </div>
 
         {/* Content */}
-        <div className="relative z-10 text-center px-8 animate-fadeInUp">
+        <div className="relative z-10 text-center px-8 pt-16 animate-fadeInUp"> {/* Added pt-16 for spacing */}
           <h1 className="text-5xl md:text-7xl font-extrabold drop-shadow-[0_0_20px_rgba(0,255,255,0.3)]">
             WELCOME TO <span className="text-cyan-400">OriNotes</span>
           </h1>
@@ -84,21 +114,17 @@ const Home = () => {
           </p>
 
           <div className="mt-10 flex flex-col sm:flex-row gap-6 justify-center">
+             {/* Removed redundant Login/Register buttons here to improve color hierarchy */}
             <button
               onClick={() => setIsModalOpen(true)}
               className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-cyan-500 hover:to-blue-600 text-white font-bold py-3 px-8 rounded-full transition-transform transform hover:scale-110 shadow-lg"
             >
               ℹ️ How to Use
             </button>
-            <Link to="/login">
-              <button className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-8 rounded-full transition-transform transform hover:scale-110 shadow-lg">
-                Login
-              </button>
-            </Link>
-            <Link to="/register">
-              <button className="bg-gradient-to-r from-cyan-500 to-teal-400 hover:from-teal-400 hover:to-cyan-500 text-white font-bold py-3 px-8 rounded-full transition-transform transform hover:scale-110 shadow-lg">
-                Register
-              </button>
+            <Link to="/notes"> {/* New CTA to drive users to content */}
+                <button className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-indigo-600 hover:to-purple-600 text-white font-bold py-3 px-8 rounded-full transition-transform transform hover:scale-110 shadow-lg">
+                    Start Browsing
+                </button>
             </Link>
           </div>
         </div>
