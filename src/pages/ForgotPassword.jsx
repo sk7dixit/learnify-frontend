@@ -1,14 +1,18 @@
-// src/pages/ForgotPassword.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Mail, Phone, Lock, ArrowRight, CheckCircle, AlertCircle, RefreshCw, ArrowLeft } from 'lucide-react';
 import api from "../services/api";
+import GlassCard from '../components/ui/GlassCard';
+import Button from '../components/ui/Button';
+import Input from '../components/ui/Input';
+import Logo from '../components/ui/Logo';
 
-const PHONE_PATTERN = /^(\+?\d{7,15})$/; // simple phone detection, accepts + and 7-15 digits
-const RESEND_COOLDOWN = 60; // seconds
+const PHONE_PATTERN = /^(\+?\d{7,15})$/;
+const RESEND_COOLDOWN = 60;
 
 const ForgotPassword = () => {
-  const [step, setStep] = useState(1); // 1 = request, 2 = verify OTP (mobile), 3 = reset password (mobile) or email-flow done
-  const [identifier, setIdentifier] = useState(""); // email or mobile
+  const [step, setStep] = useState(1); // 1 = request, 2 = verify OTP (mobile), 3 = reset password (mobile), 4 = email-sent
+  const [identifier, setIdentifier] = useState("");
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -29,7 +33,6 @@ const ForgotPassword = () => {
     };
   }, []);
 
-  // Start countdown helper
   const startResendCountdown = (seconds = RESEND_COOLDOWN) => {
     setResendCountdown(seconds);
     if (resendTimerRef.current) clearInterval(resendTimerRef.current);
@@ -44,18 +47,15 @@ const ForgotPassword = () => {
     }, 1000);
   };
 
-  // Determine if identifier looks like phone or email
   const detectFlow = (value) => {
     if (!value) return "unknown";
     if (value.includes("@")) return "email";
     if (PHONE_PATTERN.test(value.trim())) return "mobile";
-    // fallback: if all digits and length reasonable -> mobile
     const digits = value.replace(/\D/g, "");
     if (digits.length >= 7 && digits.length <= 15) return "mobile";
     return "email";
   };
 
-  // Step 1: send OTP or email reset link
   const handleSend = async (e) => {
     e.preventDefault();
     setError("");
@@ -67,18 +67,14 @@ const ForgotPassword = () => {
 
     try {
       if (flow === "mobile") {
-        // Mobile OTP flow
         const resp = await api.post("/users/forgot-password", { mobileNumber: identifier.trim() });
         setMessage(resp.data?.message || "OTP sent to your mobile number.");
-        setStep(2); // go to OTP verify
+        setStep(2);
         startResendCountdown();
       } else {
-        // Email reset flow
         const resp = await api.post("/users/forgot-password", { email: identifier.trim() });
-        // Server should send a password-reset link to email
-        setMessage(resp.data?.message || "Password reset link sent to your email. Check your inbox.");
-        // In email flow we don't proceed to OTP steps — instruct user to follow email link
-        setStep(4); // step 4 = email-sent confirmation
+        setMessage(resp.data?.message || "Password reset link sent to your email.");
+        setStep(4);
         startResendCountdown();
       }
     } catch (err) {
@@ -89,7 +85,6 @@ const ForgotPassword = () => {
     }
   };
 
-  // Step 2: verify OTP (mobile)
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
     setError("");
@@ -107,7 +102,6 @@ const ForgotPassword = () => {
     }
   };
 
-  // Step 3: reset password (mobile flow)
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setError("");
@@ -124,14 +118,12 @@ const ForgotPassword = () => {
 
     setResetting(true);
     try {
-      // For mobile flow we include mobileNumber + otp + newPassword
       const payload = isMobileFlow
         ? { mobileNumber: identifier.trim(), otp: otp.trim(), newPassword }
-        : { email: identifier.trim(), token: undefined, newPassword }; // email flow reset via link usually handled server-side
+        : { email: identifier.trim(), token: undefined, newPassword };
 
       const resp = await api.post("/users/reset-password", payload);
       setMessage(resp.data?.message || "Password updated successfully. Redirecting to login...");
-      // Wait a bit then redirect
       setTimeout(() => navigate("/login"), 1800);
     } catch (err) {
       const srv = err.response?.data;
@@ -142,7 +134,6 @@ const ForgotPassword = () => {
   };
 
   const handleResend = async () => {
-    // Resend OTP or email, depending on flow. Respect cooldown on UI.
     if (resendCountdown > 0) return;
     setError("");
     setMessage("");
@@ -165,132 +156,154 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-4">
-      <div className="bg-gray-800 bg-opacity-70 border border-gray-700 rounded-xl shadow-2xl p-6 w-full max-w-md">
-        <h2 className="text-3xl font-bold text-cyan-400 mb-4 text-center">Forgot password</h2>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+        <div className="absolute top-[20%] left-[10%] w-[30%] h-[30%] bg-purple-500/20 rounded-full blur-[100px]"></div>
+        <div className="absolute bottom-[10%] right-[20%] w-[40%] h-[40%] bg-blue-500/20 rounded-full blur-[100px]"></div>
+      </div>
 
-        {message && <div className="mb-4 text-sm text-green-300 text-center">{message}</div>}
-        {error && <div className="mb-4 text-sm text-red-400 text-center">{error}</div>}
+      <GlassCard className="w-full max-w-md animate-fade-in-up">
+        <div className="flex flex-col items-center mb-6">
+          <Logo size="lg" className="mb-2" />
+          <h2 className="text-xl font-semibold text-slate-200">Reset Password</h2>
+          <p className="text-slate-400 text-sm text-center mt-1">
+            {step === 1 && "Enter your email or mobile to receive instructions"}
+            {step === 2 && "Enter the OTP sent to your mobile"}
+            {step === 3 && "Create a new password"}
+            {step === 4 && "Check your email"}
+          </p>
+        </div>
+
+        {message && (
+          <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm flex items-start gap-2 animate-fade-in-up">
+            <CheckCircle size={18} className="mt-0.5 shrink-0" />
+            <span>{message}</span>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-start gap-2 animate-fade-in-up">
+            <AlertCircle size={18} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
 
         {step === 1 && (
-          <form onSubmit={handleSend} className="space-y-4">
-            <div>
-              <label className="block text-sm text-gray-300 mb-2">Email address or mobile number</label>
-              <input
-                type="text"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="email@example.com or +91XXXXXXXXXX"
-                required
-                className="w-full px-3 py-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                disabled={sending}
-              />
-              <p className="mt-2 text-xs text-gray-400">If you enter an email we'll send a reset link. If you enter a mobile number we'll send an OTP.</p>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-semibold disabled:opacity-50"
+          <form onSubmit={handleSend} className="space-y-5">
+            <Input
+              icon={Mail}
+              placeholder="Email or Mobile Number"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              required
               disabled={sending}
-            >
-              {sending ? "Sending..." : "Send reset instruction"}
-            </button>
+            />
+
+            <Button type="submit" isLoading={sending} className="w-full">
+              Send Instructions <ArrowRight size={18} />
+            </Button>
           </form>
         )}
 
         {step === 2 && (
-          <form onSubmit={handleVerifyOtp} className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-300">OTP was sent to <strong className="text-white">{identifier}</strong></p>
+          <form onSubmit={handleVerifyOtp} className="space-y-5">
+            <div className="text-center mb-2">
+              <p className="text-sm text-slate-300">Sent to <span className="text-cyan-400 font-medium">{identifier}</span></p>
             </div>
 
-            <div>
-              <label className="block text-sm text-gray-300 mb-1">Enter OTP</label>
-              <input
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="6-digit code"
-                required
-                className="w-full px-3 py-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                disabled={verifying}
-              />
-            </div>
+            <Input
+              type="text"
+              placeholder="Enter 6-digit OTP"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              required
+              disabled={verifying}
+              className="text-center tracking-widest font-mono text-lg"
+              autoFocus
+            />
 
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                className="flex-1 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-semibold"
-                disabled={verifying}
-              >
-                {verifying ? "Verifying..." : "Verify OTP"}
-              </button>
-
-              <button
+            <div className="flex gap-3">
+              <Button type="submit" isLoading={verifying} className="flex-1">
+                Verify OTP
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleResend}
-                className="w-36 py-2 rounded bg-gray-700 border border-gray-600 text-gray-200"
                 disabled={resendCountdown > 0}
+                className="w-32"
               >
-                {resendCountdown > 0 ? `Resend (${resendCountdown}s)` : "Resend OTP"}
-              </button>
+                {resendCountdown > 0 ? `${resendCountdown}s` : "Resend"}
+              </Button>
             </div>
           </form>
         )}
 
         {step === 3 && (
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            <div>
-              <label className="block text-sm text-gray-300 mb-1">New password</label>
-              <input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-                className="w-full px-3 py-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                disabled={resetting}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-300 mb-1">Confirm password</label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="w-full px-3 py-2 rounded bg-gray-700 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                disabled={resetting}
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-semibold"
+          <form onSubmit={handleResetPassword} className="space-y-5">
+            <Input
+              icon={Lock}
+              type="password"
+              placeholder="New Password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              required
               disabled={resetting}
-            >
-              {resetting ? "Resetting..." : "Reset password"}
-            </button>
+            />
+            <Input
+              icon={Lock}
+              type="password"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+              disabled={resetting}
+            />
+            <Button type="submit" isLoading={resetting} className="w-full">
+              Reset Password <CheckCircle size={18} />
+            </Button>
           </form>
         )}
 
         {step === 4 && (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-300 text-center">A password reset link has been sent to <strong className="text-white">{identifier}</strong>. Follow the link in your email to reset your password.</p>
-            <div className="flex gap-2">
-              <button
+          <div className="space-y-6 text-center">
+            <div className="p-4 bg-cyan-500/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto text-cyan-400">
+              <Mail size={32} />
+            </div>
+            <p className="text-slate-300 text-sm">
+              We've sent a password reset link to <span className="text-white font-medium">{identifier}</span>.
+              Please check your inbox and spam folder.
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <Button
+                type="button"
+                variant="outline"
                 onClick={handleResend}
-                className="flex-1 py-2 rounded bg-gray-700 border border-gray-600 text-gray-200"
                 disabled={resendCountdown > 0}
+                className="w-full"
               >
-                {resendCountdown > 0 ? `Resend email (${resendCountdown}s)` : "Resend email"}
-              </button>
-              <Link to="/login" className="flex-1 text-center py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-semibold">Back to login</Link>
+                {resendCountdown > 0 ? `Resend Email (${resendCountdown}s)` : "Resend Email"}
+              </Button>
+
+              <Link to="/login" className="w-full">
+                <Button variant="ghost" className="w-full">
+                  <ArrowLeft size={18} /> Back to Login
+                </Button>
+              </Link>
             </div>
           </div>
         )}
 
-        <div className="mt-6 text-center">
-          <Link to="/login" className="text-sm text-gray-300 hover:text-cyan-300">Remember your password? Login</Link>
-        </div>
-      </div>
+        {step !== 4 && (
+          <div className="mt-8 text-center">
+            <Link to="/login" className="text-slate-400 hover:text-cyan-400 text-sm font-medium transition-colors flex items-center justify-center gap-2">
+              <ArrowLeft size={16} /> Back to Login
+            </Link>
+          </div>
+        )}
+      </GlassCard>
     </div>
   );
 };

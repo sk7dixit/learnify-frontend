@@ -1,8 +1,12 @@
-// src/pages/Login.jsx
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, Key, ArrowRight, ShieldCheck, Smartphone, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api, { setAccessToken } from '../services/api';
+import GlassCard from '../components/ui/GlassCard';
+import Button from '../components/ui/Button';
+import Input from '../components/ui/Input';
+import Logo from '../components/ui/Logo';
 
 function Login() {
   const [identifier, setIdentifier] = useState('');
@@ -11,7 +15,6 @@ function Login() {
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [loginMethod, setLoginMethod] = useState('password'); // 'password' | 'otp'
   const [isOtpSent, setIsOtpSent] = useState(false);
   const [twoFactorRequired, setTwoFactorRequired] = useState(false);
@@ -22,19 +25,15 @@ function Login() {
   const navigate = useNavigate();
   const { login: authLogin } = useAuth();
 
-  // Called when a successful login response arrives
   const handleSuccessfulLogin = (response) => {
-    // Response shape: { data: { token, user } } (server may vary)
     const token = response?.data?.token || response?.data?.accessToken || null;
     const user = response?.data?.user || response?.data?.profile || null;
 
     if (token) {
-      // Let AuthContext handle storing token/user or store here if needed
       try {
-        authLogin(token, user); // your AuthContext's login function
+        authLogin(token, user);
       } catch (e) {
-        // Fallback: store token in api helper if AuthContext doesn't
-        try { setAccessToken(token); } catch (_) {}
+        try { setAccessToken(token); } catch (_) { }
       }
       setMessage('Login successful — redirecting...');
       setError('');
@@ -44,7 +43,6 @@ function Login() {
       return;
     }
 
-    // If no token but server returned something else (rare), show a message
     setMessage(response?.data?.message || 'Logged in (no token provided).');
     setLoading(false);
   };
@@ -60,16 +58,6 @@ function Login() {
     setTwoFactorCode('');
   };
 
-  const getButtonText = () => {
-    if (loading) {
-      if (loginMethod === 'password') return twoFactorRequired ? 'Verifying 2FA...' : 'Logging in...';
-      return isOtpSent ? 'Verifying...' : 'Sending...';
-    }
-    if (loginMethod === 'password') return twoFactorRequired ? 'Verify 2FA' : 'Log In';
-    return isOtpSent ? 'Login with OTP' : 'Send OTP';
-  };
-
-  // resend verification link (phase 6)
   const handleResendVerification = async () => {
     if (!identifier) return setError('Enter your email or username to resend verification.');
     setResendLoading(true);
@@ -93,16 +81,14 @@ function Login() {
 
     try {
       if (loginMethod === 'password') {
-        // Login with password (may require 2FA)
         const payload = {
           identifier: identifier.trim(),
           password,
           twoFactorCode: twoFactorRequired ? twoFactorCode.trim() : undefined,
-          rememberMe, // informs backend to issue longer refresh token / cookie
+          rememberMe,
         };
 
         const response = await api.post('/users/login', payload);
-        // Server may respond with { twoFactorRequired: true } and 200/403
         if (response.data && response.data.twoFactorRequired) {
           setTwoFactorRequired(true);
           setError(response.data.error || 'Two-factor authentication required. Enter code.');
@@ -110,37 +96,26 @@ function Login() {
           return;
         }
 
-        // Otherwise, treat as successful
         handleSuccessfulLogin(response);
 
       } else {
-        // OTP flow: two-step
         if (!isOtpSent) {
-          // Request OTP to be sent to the user's mobile/email depending on server impl
           const resp = await api.post('/users/login-otp-request', { identifier: identifier.trim() });
           setMessage(resp.data?.message || 'OTP sent. Please check your device.');
           setIsOtpSent(true);
           setLoading(false);
         } else {
-          // Verify OTP
           const resp = await api.post('/users/login-otp-verify', { identifier: identifier.trim(), otp: otp.trim(), rememberMe });
-          // OTP verify should return token + user
           handleSuccessfulLogin(resp);
         }
       }
     } catch (err) {
-      // Server could respond with various payloads:
-      // - { error: '...', twoFactorRequired: true }
-      // - { error: 'Email not verified' }
       const srv = err.response?.data;
       if (srv?.twoFactorRequired) {
-        // Server is telling us 2FA must be completed
         setTwoFactorRequired(true);
         setError(srv.error || 'Two-factor required. Enter code.');
       } else if (/verify/i.test(srv?.error || '')) {
-        // Likely not verified email
-        setError(srv?.error || 'Email not verified. You may resend verification.');
-        setMessage('');
+        setError(srv?.error || 'Email not verified.');
       } else {
         setError(srv?.error || 'Login failed. Check credentials and try again.');
       }
@@ -149,142 +124,174 @@ function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 p-4">
-      <div className="bg-gray-800 bg-opacity-75 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full">
-        <h2 className="text-3xl sm:text-4xl font-extrabold text-cyan-400 mb-6 text-center tracking-tight">Welcome Back</h2>
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden -z-10 pointer-events-none">
+        <div className="absolute top-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-500/20 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[-20%] left-[-10%] w-[50%] h-[50%] bg-cyan-500/20 rounded-full blur-[120px]"></div>
+      </div>
 
-        <div className="flex justify-center border border-gray-600 rounded-lg p-1 mb-5">
+      <GlassCard className="w-full max-w-md animate-fade-in-up">
+        <div className="flex flex-col items-center mb-8">
+          <Logo size="lg" className="mb-2" />
+          <p className="text-slate-400 text-center">Welcome back, please login to continue</p>
+        </div>
+
+        {/* Method Switcher */}
+        <div className="flex p-1 bg-slate-800/50 rounded-xl mb-6 border border-slate-700/50">
           <button
             onClick={() => switchMethod('password')}
-            className={`w-1/2 py-2 rounded-md text-sm font-semibold ${loginMethod === 'password' ? 'bg-cyan-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${loginMethod === 'password'
+                ? 'bg-cyan-500/20 text-cyan-400 shadow-sm border border-cyan-500/20'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/30'
+              }`}
           >
-            Use Password
+            <Key size={16} /> Password
           </button>
           <button
             onClick={() => switchMethod('otp')}
-            className={`w-1/2 py-2 rounded-md text-sm font-semibold ${loginMethod === 'otp' ? 'bg-cyan-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${loginMethod === 'otp'
+                ? 'bg-cyan-500/20 text-cyan-400 shadow-sm border border-cyan-500/20'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-700/30'
+              }`}
           >
-            Use OTP
+            <Smartphone size={16} /> OTP Login
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label htmlFor="identifier" className="block text-sm font-medium text-gray-300 mb-2">Email or Username</label>
-            <input
-              id="identifier"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              required
-              disabled={isOtpSent || twoFactorRequired || loading}
-              className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              placeholder="your@example.com or username"
-            />
+        {message && (
+          <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm flex items-start gap-2 animate-fade-in-up">
+            <CheckCircle size={18} className="mt-0.5 shrink-0" />
+            <span>{message}</span>
           </div>
+        )}
+
+        {error && (
+          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex flex-col gap-2 animate-fade-in-up">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={18} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+            {error.includes('verified') && (
+              <button
+                onClick={handleResendVerification}
+                disabled={resendLoading}
+                className="text-xs font-semibold text-red-300 hover:text-red-200 underline self-start ml-6"
+              >
+                {resendLoading ? 'Resending...' : 'Resend verification email'}
+              </button>
+            )}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <Input
+            icon={Mail}
+            placeholder="Email or Username"
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            required
+            disabled={isOtpSent || twoFactorRequired || loading}
+          />
 
           {loginMethod === 'password' && !twoFactorRequired && (
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">Password</label>
-              <div className="relative">
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
+            <>
+              <div className="space-y-1">
+                <Input
+                  icon={Lock}
+                  type="password"
+                  placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={loading}
-                  className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 pr-10"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(s => !s)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-white"
-                  aria-label={showPassword ? 'Hide' : 'Show'}
-                >
-                  {showPassword ? 'Hide' : 'Show'}
-                </button>
+                <div className="flex justify-end">
+                  <Link to="/forgot-password" className="text-xs text-cyan-400 hover:text-cyan-300 hover:underline">
+                    Forgot Password?
+                  </Link>
+                </div>
               </div>
-              <div className="flex justify-between items-center mt-2">
-                <Link to="/forgot-password" className="text-sm text-gray-400 hover:text-cyan-400">Forgot Password?</Link>
-                <label className="flex items-center gap-2 text-sm text-gray-300">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="form-checkbox h-4 w-4 text-cyan-500"
-                    disabled={loading}
-                  />
-                  Remember me (10 days)
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-slate-800"
+                  disabled={loading}
+                />
+                <label htmlFor="rememberMe" className="text-sm text-slate-300 cursor-pointer select-none">
+                  Remember me for 10 days
                 </label>
               </div>
-            </div>
+            </>
           )}
 
           {twoFactorRequired && (
-            <div>
-              <label htmlFor="twoFactorCode" className="block text-sm font-medium text-gray-300 mb-2">2FA Code</label>
-              <input
-                id="twoFactorCode"
+            <div className="animate-fade-in-up">
+              <div className="p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-xl mb-4">
+                <p className="text-sm text-cyan-200 flex items-center gap-2">
+                  <ShieldCheck size={18} />
+                  Two-Factor Authentication Required
+                </p>
+                <p className="text-xs text-slate-400 mt-1 ml-6">
+                  Enter the code from your authenticator app.
+                </p>
+              </div>
+              <Input
+                icon={ShieldCheck}
+                placeholder="Enter 6-digit 2FA Code"
                 value={twoFactorCode}
                 onChange={(e) => setTwoFactorCode(e.target.value)}
                 required
                 disabled={loading}
-                placeholder="123456"
-                className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                autoFocus
+                className="text-center tracking-widest font-mono text-lg"
               />
-              <p className="text-xs text-gray-400 mt-2">Enter the code from your authenticator app. If you don't have one, use the 'Disable 2FA' flow in account settings after logging in.</p>
             </div>
           )}
 
           {loginMethod === 'otp' && isOtpSent && (
-            <div>
-              <label htmlFor="otp" className="block text-sm font-medium text-gray-300 mb-2">OTP</label>
-              <input
-                id="otp"
+            <div className="animate-fade-in-up">
+              <Input
+                icon={Key}
+                placeholder="Enter OTP Code"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
                 required
                 disabled={loading}
-                placeholder="6-digit code"
-                className="w-full px-4 py-3 rounded-lg bg-gray-700 border border-gray-600 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                autoFocus
+                className="text-center tracking-widest font-mono text-lg"
               />
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 rounded-lg font-semibold bg-gradient-to-r from-cyan-600 to-blue-600 text-white hover:from-cyan-700 hover:to-blue-700 transition transform hover:-translate-y-0.5 disabled:opacity-50"
-          >
-            {getButtonText()}
-          </button>
+          <Button type="submit" isLoading={loading} className="w-full mt-2">
+            {loading ? (
+              'Processing...'
+            ) : (
+              <>
+                {loginMethod === 'password'
+                  ? (twoFactorRequired ? 'Verify & Login' : 'Sign In')
+                  : (isOtpSent ? 'Verify OTP' : 'Send OTP')
+                }
+                {!loading && <ArrowRight size={18} />}
+              </>
+            )}
+          </Button>
         </form>
 
-        {/* Messages */}
-        {error && (
-          <div className="mt-4 text-center">
-            <p className="text-red-400">{error}</p>
-
-            {/* If server indicates verification needed, offer resend */}
-            <div className="mt-2 flex items-center justify-center gap-2">
-              <button
-                onClick={handleResendVerification}
-                disabled={resendLoading}
-                className="text-sm text-cyan-300 hover:text-cyan-200"
-              >
-                {resendLoading ? 'Resending...' : 'Resend verification'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {message && <p className="mt-4 text-center text-green-400">{message}</p>}
-
-        <p className="mt-6 text-center text-sm text-gray-400">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-cyan-400 hover:text-cyan-300 font-semibold">Register</Link>
-        </p>
-      </div>
+        <div className="mt-8 text-center">
+          <p className="text-slate-400 text-sm">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-cyan-400 hover:text-cyan-300 font-medium hover:underline transition-all">
+              Create Account
+            </Link>
+          </p>
+        </div>
+      </GlassCard>
     </div>
   );
 }
